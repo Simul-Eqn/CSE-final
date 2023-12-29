@@ -62,6 +62,7 @@ def bondType_idx_to_encoding(bondtype_idx):
 # btype is bond type, as above, 0-indexed 
 # energy is float in kJ/mol 
 
+# THIS IS TODO, SINCE BOND ENERGY PREDICTION IS NOT FEASIBLE 
 bondDBFile = open("./RL_attempt/data/bonds.csv", 'r') 
 raw_bondDB = bondDBFile.readlines() 
 bondDBFile.close() 

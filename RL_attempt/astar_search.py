@@ -38,95 +38,108 @@ num_guesses_per_state = 2 # -1 means all
 beam_width = 100 
 types_considered = [0,1] # no benzene, 1 benzene - TODO: make the aromatic bonds thing check based on this too perhaps??? 
 
-valid_fraction = 0.5 
-max_num_heavy_atoms = 12 # remember to update this as necessary --------------------------------------------------------------------------------------------------
+
+# placeholders to be set in init 
 filter_away_not_0_1 = True 
-
-
-# testing 
-test_smiless, test_ftrees, test_peakslist = dataloader.get_data('test') # test 
-
-# add validation cases 
-valid_smiless, valid_ftrees, valid_peakslist = dataloader.get_data('dev') 
-test_smiless += valid_smiless 
-test_ftrees += valid_ftrees 
-test_peakslist += valid_peakslist 
-
-
-
-# preprocess some data 
 test_filtered_smiless = [] 
 test_filtered_ftrees = [] 
-test_graphs = [] 
-if filter_away_not_0_1: 
-    test_start_types = [] 
+test_start_types = [] 
+valid_count = 0 
 
-for idx in range(len(test_smiless)): 
-    # get graph of target molecule to make MolState 
-    target_graph = utils.SMILEStoGraph(test_smiless[idx]).to(device) 
 
-    # filter away molecules that are too large 
-    if sum(utils.smiles_to_atom_counts(test_smiless[idx], include_H=False)) > max_num_heavy_atoms: 
-        continue 
+def init(valid_fraction:float, 
+         max_num_heavy_atoms:int, 
+         filter_away_not_0_1_local:bool): 
     
-    #start_type = 0 
-    if (filter_away_not_0_1): 
-        # make sure that we are only learning those with benzene or no benzene but not other aromatic structures 
-        aromatic_bonds = [] 
-        for e in range(len(target_graph.edata['bondTypes'])//2): 
-            if target_graph.edata['bondTypes'][2*e,4] == 1: 
-                aromatic_bonds.append(e) 
-        
-        if len(aromatic_bonds) != 0 and len(aromatic_bonds) != 6: continue # don't try this 
-        start_type = 0 # -------------------------------------------------------------------------------------------------
-        if len(aromatic_bonds) == 6: 
-            start_type = 1 # ---------------------------------------------------------------------------------------------
-            idxs = set() 
-            edge_list = list(target_graph.edges()) 
-            for e in aromatic_bonds: 
-                idxs.add(edge_list[0][e].item()) 
-                idxs.add(edge_list[1][e].item()) 
-            
-            idxs = list(idxs) 
-            if len(idxs) != 6: continue # means not benzene ring 
+    global test_filtered_smiless, test_filtered_ftrees, test_start_types, valid_count, filter_away_not_0_1 
 
-            # check that all have degree 2 
-            degs = [0 for _ in range(6)] 
-            for e in aromatic_bonds: 
-                degs[idxs.index(edge_list[0][e].item())] += 1 
-                degs[idxs.index(edge_list[1][e].item())] += 1 
-            
-            skip = False 
-            for d in degs: 
-                if d != 2: 
-                    skip = True 
-                    break 
-            
-            if skip: continue 
+    filter_away_not_0_1 = filter_away_not_0_1_local 
+
+    # testing 
+    test_smiless, test_ftrees, test_peakslist = dataloader.get_data('test') # test 
+
+    # add validation cases 
+    valid_smiless, valid_ftrees, valid_peakslist = dataloader.get_data('dev') 
     
-    mass_spec = MassSpec(False, test_ftrees[idx], mass_spec_gcn_path, None, device=device) # path doesn't have to be correct, just needed for syntax issues 
-    init_formula = CalcMolFormula(Chem.MolFromSmiles(test_smiless[idx]))  
-    target_state = MolState(test_smiless[idx], utils.formula_to_atom_counts(init_formula), target_graph, 0, device) 
-    
-    rem_Hs, fatal_errors = EnvMolecule.compare_state_to_mass_spec(target_state, mass_spec, True) 
-    if len(fatal_errors) > 0: 
-        continue 
+    test_smiless += valid_smiless 
+    test_ftrees += valid_ftrees 
+    test_peakslist += valid_peakslist 
 
-    # now, verified to be okay :) 
 
-    num_bonds = len(list(target_graph.edges()))//2 
 
-    test_filtered_smiless.append(test_smiless[idx]) 
-    test_filtered_ftrees.append(test_ftrees[idx]) 
-    #print(target_graph.device, mass_spec.pred.device)
-    test_graphs.append(target_graph) 
-
+    # preprocess some data 
+    test_filtered_smiless = [] 
+    test_filtered_ftrees = [] 
+    test_graphs = [] 
     if filter_away_not_0_1: 
-        test_start_types.append(start_type) 
+        test_start_types = [] 
+
+    for idx in range(len(test_smiless)): 
+        # get graph of target molecule to make MolState 
+        target_graph = utils.SMILEStoGraph(test_smiless[idx]).to(device) 
+
+        # filter away molecules that are too large 
+        if sum(utils.smiles_to_atom_counts(test_smiless[idx], include_H=False)) > max_num_heavy_atoms: 
+            continue 
+        
+        #start_type = 0 
+        if (filter_away_not_0_1): 
+            # make sure that we are only learning those with benzene or no benzene but not other aromatic structures 
+            aromatic_bonds = [] 
+            for e in range(len(target_graph.edata['bondTypes'])//2): 
+                if target_graph.edata['bondTypes'][2*e,4] == 1: 
+                    aromatic_bonds.append(e) 
+            
+            if len(aromatic_bonds) != 0 and len(aromatic_bonds) != 6: continue # don't try this 
+            start_type = 0 # -------------------------------------------------------------------------------------------------
+            if len(aromatic_bonds) == 6: 
+                start_type = 1 # ---------------------------------------------------------------------------------------------
+                idxs = set() 
+                edge_list = list(target_graph.edges()) 
+                for e in aromatic_bonds: 
+                    idxs.add(edge_list[0][e].item()) 
+                    idxs.add(edge_list[1][e].item()) 
+                
+                idxs = list(idxs) 
+                if len(idxs) != 6: continue # means not benzene ring 
+
+                # check that all have degree 2 
+                degs = [0 for _ in range(6)] 
+                for e in aromatic_bonds: 
+                    degs[idxs.index(edge_list[0][e].item())] += 1 
+                    degs[idxs.index(edge_list[1][e].item())] += 1 
+                
+                skip = False 
+                for d in degs: 
+                    if d != 2: 
+                        skip = True 
+                        break 
+                
+                if skip: continue 
+        
+        mass_spec = MassSpec(False, test_ftrees[idx], mass_spec_gcn_path, None, device=device) # path doesn't have to be correct, just needed for syntax issues 
+        init_formula = CalcMolFormula(Chem.MolFromSmiles(test_smiless[idx]))  
+        target_state = MolState(test_smiless[idx], utils.formula_to_atom_counts(init_formula), target_graph, 0, device) 
+        
+        rem_Hs, fatal_errors = EnvMolecule.compare_state_to_mass_spec(target_state, mass_spec, True) 
+        if len(fatal_errors) > 0: 
+            continue 
+
+        # now, verified to be okay :) 
+
+        num_bonds = len(list(target_graph.edges()))//2 
+
+        test_filtered_smiless.append(test_smiless[idx]) 
+        test_filtered_ftrees.append(test_ftrees[idx]) 
+        #print(target_graph.device, mass_spec.pred.device)
+        test_graphs.append(target_graph) 
+
+        if filter_away_not_0_1: 
+            test_start_types.append(start_type) 
 
 
 
-valid_count = int(valid_fraction * len(test_filtered_smiless)) 
+    valid_count = int(valid_fraction * len(test_filtered_smiless)) 
 
 
 
@@ -136,49 +149,19 @@ def test_first_k(epoch, num_leaves, save_prefix:str="", save_states=True): # NOT
     num_tests = 0 
     test_state_ai = MolStateAI(False, path_prefix+'/MolStateGCN_epoch_'+str(epoch)+'.pt', path_prefix+"/center_epoch_"+str(epoch)+".pt", path_prefix+"/radius_epoch_"+str(epoch)+".txt", device=device) 
 
+    action_accuracies = [] 
+    correct_action_counts = [] 
+    total_action_counts = [] 
+
     issue_count = 0 
 
     for test_idx in range(valid_count, len(test_filtered_smiless)): 
         # target 
         test_target_graph = utils.SMILEStoGraph(test_filtered_smiless[test_idx]).to(device) 
 
-        """
-
-        # make sure it has a possible init state (by looking at aromatic bonds) 
-        aromatic_bonds = [] 
-        for e in range(len(test_target_graph.edata['bondTypes'])//2): 
-            if test_target_graph.edata['bondTypes'][2*e,4] == 1: 
-                aromatic_bonds.append(e) 
-        
-        test_start_type = 0 
-        if len(aromatic_bonds) != 0 and len(aromatic_bonds) != 6: continue # don't try this 
-        if len(aromatic_bonds) == 6: 
-            test_start_type = 1 
-            idxs = set() 
-            edge_list = list(test_target_graph.edges()) 
-            for e in aromatic_bonds: 
-                idxs.add(edge_list[0][e].item()) 
-                idxs.add(edge_list[1][e].item()) 
-            
-            idxs = list(idxs) 
-            if len(idxs) != 6: continue # means not benzene ring 
-
-            # check that all have degree 2 
-            degs = [0 for _ in range(6)] 
-            for e in aromatic_bonds: 
-                degs[idxs.index(edge_list[0][e].item())] += 1 
-                degs[idxs.index(edge_list[1][e].item())] += 1 
-            
-            skip = False 
-            for d in degs: 
-                if d != 2: 
-                    skip = True 
-                    break 
-            
-            if skip: continue 
-        
-            """ 
-
+        test_target_state = MolState(test_filtered_smiless[test_idx], graph=test_target_graph) 
+        correct_actions = test_target_state.get_valid_unactions() 
+        del test_target_state 
 
         test_mass_spec = MassSpec(False, test_filtered_ftrees[test_idx], mass_spec_gcn_path, None, device=device) 
         test_init_formula = CalcMolFormula(Chem.MolFromSmiles(test_filtered_smiless[test_idx]))   
@@ -234,10 +217,16 @@ def test_first_k(epoch, num_leaves, save_prefix:str="", save_states=True): # NOT
             # this is normal, because there's bound to be no solution using benzene if the answer has no benzene. 
             pass 
 
+        num_correct_actions = 0 
+        total_num_actions = 0 
 
         while (not pq.empty()) and (not leaves.full()):
             score, state_tuple, pair = pq.get_nowait()
             idx, state = state_tuple 
+
+            if pair[0] in correct_actions: 
+                num_correct_actions += 1 
+            total_num_actions += 1 
 
             am.paths_tree[idx] = state 
 
@@ -306,6 +295,11 @@ def test_first_k(epoch, num_leaves, save_prefix:str="", save_states=True): # NOT
             if utils.is_isomorphic(state.graph.cpu(), test_target_graph.cpu()): 
                 num_corrects[i] += 1 
             i += 1 
+        correct_action_counts.append(num_correct_actions) 
+        total_action_counts.append(total_num_actions) 
+
+        action_accuracy = num_correct_actions / total_num_actions 
+        action_accuracies.append(action_accuracy) 
         
         num_tests += 1 
 
@@ -317,9 +311,10 @@ def test_first_k(epoch, num_leaves, save_prefix:str="", save_states=True): # NOT
 
     print() 
     print("EPOCH",epoch,"FIRST",num_leaves,"GUESS SUCCESS RATES:", res ) 
+    print("AVG ACTION ACCURACY:",sum(action_accuracies)/num_tests) 
     print() 
 
-    return res 
+    return res, correct_action_counts, total_action_counts 
 
 
 
@@ -330,49 +325,19 @@ def valid_first_k(epoch, num_leaves, save_prefix:str="", save_states=True): # NO
     num_tests = 0 
     test_state_ai = MolStateAI(False, path_prefix+'/MolStateGCN_epoch_'+str(epoch)+'.pt', path_prefix+"/center_epoch_"+str(epoch)+".pt", path_prefix+"/radius_epoch_"+str(epoch)+".txt", device=device) 
 
+    action_accuracies = [] 
+    correct_action_counts = [] 
+    total_action_counts = [] 
+
     issue_count = 0 
 
     for test_idx in range(valid_count): 
         # target 
         test_target_graph = utils.SMILEStoGraph(test_filtered_smiless[test_idx]).to(device) 
 
-        """
-
-        # make sure it has a possible init state (by looking at aromatic bonds) 
-        aromatic_bonds = [] 
-        for e in range(len(test_target_graph.edata['bondTypes'])//2): 
-            if test_target_graph.edata['bondTypes'][2*e,4] == 1: 
-                aromatic_bonds.append(e) 
-        
-        test_start_type = 0 
-        if len(aromatic_bonds) != 0 and len(aromatic_bonds) != 6: continue # don't try this 
-        if len(aromatic_bonds) == 6: 
-            test_start_type = 1 
-            idxs = set() 
-            edge_list = list(test_target_graph.edges()) 
-            for e in aromatic_bonds: 
-                idxs.add(edge_list[0][e].item()) 
-                idxs.add(edge_list[1][e].item()) 
-            
-            idxs = list(idxs) 
-            if len(idxs) != 6: continue # means not benzene ring 
-
-            # check that all have degree 2 
-            degs = [0 for _ in range(6)] 
-            for e in aromatic_bonds: 
-                degs[idxs.index(edge_list[0][e].item())] += 1 
-                degs[idxs.index(edge_list[1][e].item())] += 1 
-            
-            skip = False 
-            for d in degs: 
-                if d != 2: 
-                    skip = True 
-                    break 
-            
-            if skip: continue 
-        
-            """ 
-
+        test_target_state = MolState(test_filtered_smiless[test_idx], graph=test_target_graph) 
+        correct_actions = test_target_state.get_valid_unactions() 
+        del test_target_state 
 
         test_mass_spec = MassSpec(False, test_filtered_ftrees[test_idx], mass_spec_gcn_path, None, device=device) 
         test_init_formula = CalcMolFormula(Chem.MolFromSmiles(test_filtered_smiless[test_idx]))   
@@ -428,10 +393,16 @@ def valid_first_k(epoch, num_leaves, save_prefix:str="", save_states=True): # NO
             # this is normal, because there's bound to be no solution using benzene if the answer has no benzene. 
             pass 
 
+        num_correct_actions = 0 
+        total_num_actions = 0 
 
         while (not pq.empty()) and (not leaves.full()):
             score, state_tuple, pair = pq.get_nowait()
             idx, state = state_tuple 
+
+            if pair[0] in correct_actions: 
+                num_correct_actions += 1 
+            total_num_actions += 1 
 
             am.paths_tree[idx] = state 
 
@@ -500,6 +471,12 @@ def valid_first_k(epoch, num_leaves, save_prefix:str="", save_states=True): # NO
             if utils.is_isomorphic(state.graph.cpu(), test_target_graph.cpu()): 
                 num_corrects[i] += 1 
             i += 1 
+
+        correct_action_counts.append(num_correct_actions) 
+        total_action_counts.append(total_num_actions) 
+
+        action_accuracy = num_correct_actions / total_num_actions 
+        action_accuracies.append(action_accuracy) 
         
         num_tests += 1 
 
@@ -511,9 +488,10 @@ def valid_first_k(epoch, num_leaves, save_prefix:str="", save_states=True): # NO
 
     print() 
     print("VALID: EPOCH",epoch,"FIRST",num_leaves,"GUESS SUCCESS RATES:", res ) 
+    print("AVG ACTION ACCURACY:",sum(action_accuracies)/num_tests) 
     print() 
 
-    return res 
+    return res, correct_action_counts, total_action_counts 
 
 
 
@@ -526,49 +504,19 @@ def test_top_k(epoch, num_leaves, save_prefix:str="", save_states=True):
     num_tests = 0 
     test_state_ai = MolStateAI(False, path_prefix+'/MolStateGCN_epoch_'+str(epoch)+'.pt', path_prefix+"/center_epoch_"+str(epoch)+".pt", path_prefix+"/radius_epoch_"+str(epoch)+".txt", device=device) 
 
+    action_accuracies = [] 
+    correct_action_counts = [] 
+    total_action_counts = [] 
+
     issue_count = 0 
 
     for test_idx in range(valid_count, len(test_filtered_smiless)): 
         # target 
         test_target_graph = utils.SMILEStoGraph(test_filtered_smiless[test_idx]).to(device) 
 
-        """
-
-        # make sure it has a possible init state (by looking at aromatic bonds) 
-        aromatic_bonds = [] 
-        for e in range(len(test_target_graph.edata['bondTypes'])//2): 
-            if test_target_graph.edata['bondTypes'][2*e,4] == 1: 
-                aromatic_bonds.append(e) 
-        
-        test_start_type = 0 
-        if len(aromatic_bonds) != 0 and len(aromatic_bonds) != 6: continue # don't try this 
-        if len(aromatic_bonds) == 6: 
-            test_start_type = 1 
-            idxs = set() 
-            edge_list = list(test_target_graph.edges()) 
-            for e in aromatic_bonds: 
-                idxs.add(edge_list[0][e].item()) 
-                idxs.add(edge_list[1][e].item()) 
-            
-            idxs = list(idxs) 
-            if len(idxs) != 6: continue # means not benzene ring 
-
-            # check that all have degree 2 
-            degs = [0 for _ in range(6)] 
-            for e in aromatic_bonds: 
-                degs[idxs.index(edge_list[0][e].item())] += 1 
-                degs[idxs.index(edge_list[1][e].item())] += 1 
-            
-            skip = False 
-            for d in degs: 
-                if d != 2: 
-                    skip = True 
-                    break 
-            
-            if skip: continue 
-        
-            """ 
-
+        test_target_state = MolState(test_filtered_smiless[test_idx], graph=test_target_graph) 
+        correct_actions = test_target_state.get_valid_unactions() 
+        del test_target_state 
 
         test_mass_spec = MassSpec(False, test_filtered_ftrees[test_idx], mass_spec_gcn_path, None, device=device) 
         test_init_formula = CalcMolFormula(Chem.MolFromSmiles(test_filtered_smiless[test_idx]))   
@@ -629,10 +577,16 @@ def test_top_k(epoch, num_leaves, save_prefix:str="", save_states=True):
             # this is normal, because there's bound to be no solution using benzene if the answer has no benzene. 
             pass 
 
+        num_correct_actions = 0 
+        total_num_actions = 0 
 
         while (not pq.empty()) and (not leaves.full()):
             score, state_tuple, pair = pq.get_nowait()
             idx, state = state_tuple 
+
+            if pair[0] in correct_actions: 
+                num_correct_actions += 1 
+            total_num_actions += 1 
 
             am.paths_tree[idx] = state 
 
@@ -701,6 +655,12 @@ def test_top_k(epoch, num_leaves, save_prefix:str="", save_states=True):
             if utils.is_isomorphic(state.graph.cpu(), test_target_graph.cpu()): 
                 num_corrects[i] += 1 
             i += 1 
+
+        correct_action_counts.append(num_correct_actions) 
+        total_action_counts.append(total_num_actions) 
+
+        action_accuracy = num_correct_actions / total_num_actions 
+        action_accuracies.append(action_accuracy) 
         
         num_tests += 1 
 
@@ -713,9 +673,10 @@ def test_top_k(epoch, num_leaves, save_prefix:str="", save_states=True):
 
     print() 
     print("EPOCH",epoch,"TOP",num_leaves,"GUESS SUCCESS RATES:", res ) 
+    print("AVG ACTION ACCURACY:",sum(action_accuracies)/num_tests) 
     print() 
 
-    return res 
+    return res, correct_action_counts, total_action_counts 
 
 
 # valid top k function 
@@ -726,47 +687,17 @@ def valid_top_k(epoch, num_leaves, save_prefix:str="", save_states=True):
 
     issue_count = 0 
 
+    action_accuracies = [] 
+    correct_action_counts = [] 
+    total_action_counts = [] 
+
     for test_idx in range(valid_count): 
         # target 
         test_target_graph = utils.SMILEStoGraph(test_filtered_smiless[test_idx]).to(device) 
 
-        """
-
-        # make sure it has a possible init state (by looking at aromatic bonds) 
-        aromatic_bonds = [] 
-        for e in range(len(test_target_graph.edata['bondTypes'])//2): 
-            if test_target_graph.edata['bondTypes'][2*e,4] == 1: 
-                aromatic_bonds.append(e) 
-        
-        test_start_type = 0 
-        if len(aromatic_bonds) != 0 and len(aromatic_bonds) != 6: continue # don't try this 
-        if len(aromatic_bonds) == 6: 
-            test_start_type = 1 
-            idxs = set() 
-            edge_list = list(test_target_graph.edges()) 
-            for e in aromatic_bonds: 
-                idxs.add(edge_list[0][e].item()) 
-                idxs.add(edge_list[1][e].item()) 
-            
-            idxs = list(idxs) 
-            if len(idxs) != 6: continue # means not benzene ring 
-
-            # check that all have degree 2 
-            degs = [0 for _ in range(6)] 
-            for e in aromatic_bonds: 
-                degs[idxs.index(edge_list[0][e].item())] += 1 
-                degs[idxs.index(edge_list[1][e].item())] += 1 
-            
-            skip = False 
-            for d in degs: 
-                if d != 2: 
-                    skip = True 
-                    break 
-            
-            if skip: continue 
-        
-            """ 
-
+        test_target_state = MolState(test_filtered_smiless[test_idx], graph=test_target_graph) 
+        correct_actions = test_target_state.get_valid_unactions() 
+        del test_target_state 
 
         test_mass_spec = MassSpec(False, test_filtered_ftrees[test_idx], mass_spec_gcn_path, None, device=device) 
         test_init_formula = CalcMolFormula(Chem.MolFromSmiles(test_filtered_smiless[test_idx]))   
@@ -827,10 +758,16 @@ def valid_top_k(epoch, num_leaves, save_prefix:str="", save_states=True):
             # this is normal, because there's bound to be no solution using benzene if the answer has no benzene. 
             pass 
 
+        num_correct_actions = 0 
+        total_num_actions = 0 
 
         while (not pq.empty()) and (not leaves.full()):
             score, state_tuple, pair = pq.get_nowait()
             idx, state = state_tuple 
+
+            if pair[0] in correct_actions: 
+                num_correct_actions += 1 
+            total_num_actions += 1 
 
             am.paths_tree[idx] = state 
 
@@ -899,6 +836,12 @@ def valid_top_k(epoch, num_leaves, save_prefix:str="", save_states=True):
             if utils.is_isomorphic(state.graph.cpu(), test_target_graph.cpu()): 
                 num_corrects[i] += 1 
             i += 1 
+
+        correct_action_counts.append(num_correct_actions) 
+        total_action_counts.append(total_num_actions) 
+
+        action_accuracy = num_correct_actions / total_num_actions 
+        action_accuracies.append(action_accuracy) 
         
         num_tests += 1 
 
@@ -911,9 +854,10 @@ def valid_top_k(epoch, num_leaves, save_prefix:str="", save_states=True):
 
     print() 
     print("VALID: EPOCH",epoch,"TOP",num_leaves,"GUESS SUCCESS RATES:", res ) 
+    print("AVG ACTION ACCURACY:",sum(action_accuracies)/num_tests) 
     print() 
 
-    return res 
+    return res, correct_action_counts, total_action_counts 
 
 
 
@@ -935,46 +879,17 @@ def random_top_k(valid, num_leaves, save_prefix:str="", save_states=True): # val
 
     issue_count = 0 
 
+    action_accuracies = [] 
+    correct_action_counts = [] 
+    total_action_counts = [] 
+
     for test_idx in r: 
         # target 
         test_target_graph = utils.SMILEStoGraph(test_filtered_smiless[test_idx]).to(device) 
 
-        """
-
-        # make sure it has a possible init state (by looking at aromatic bonds) 
-        aromatic_bonds = [] 
-        for e in range(len(test_target_graph.edata['bondTypes'])//2): 
-            if test_target_graph.edata['bondTypes'][2*e,4] == 1: 
-                aromatic_bonds.append(e) 
-        
-        test_start_type = 0 
-        if len(aromatic_bonds) != 0 and len(aromatic_bonds) != 6: continue # don't try this 
-        if len(aromatic_bonds) == 6: 
-            test_start_type = 1 
-            idxs = set() 
-            edge_list = list(test_target_graph.edges()) 
-            for e in aromatic_bonds: 
-                idxs.add(edge_list[0][e].item()) 
-                idxs.add(edge_list[1][e].item()) 
-            
-            idxs = list(idxs) 
-            if len(idxs) != 6: continue # means not benzene ring 
-
-            # check that all have degree 2 
-            degs = [0 for _ in range(6)] 
-            for e in aromatic_bonds: 
-                degs[idxs.index(edge_list[0][e].item())] += 1 
-                degs[idxs.index(edge_list[1][e].item())] += 1 
-            
-            skip = False 
-            for d in degs: 
-                if d != 2: 
-                    skip = True 
-                    break 
-            
-            if skip: continue 
-        
-            """ 
+        test_target_state = MolState(test_filtered_smiless[test_idx], graph=test_target_graph) 
+        correct_actions = test_target_state.get_valid_unactions() 
+        del test_target_state 
 
 
         test_mass_spec = MassSpec(False, test_filtered_ftrees[test_idx], mass_spec_gcn_path, None, device=device) 
@@ -1036,10 +951,16 @@ def random_top_k(valid, num_leaves, save_prefix:str="", save_states=True): # val
             # this is normal, because there's bound to be no solution using benzene if the answer has no benzene. 
             pass 
 
+        num_correct_actions = 0 
+        total_num_actions = 0 
 
         while (not pq.empty()) and (not leaves.full()):
             score, state_tuple, pair = pq.get_nowait()
             idx, state = state_tuple 
+
+            if pair[0] in correct_actions: 
+                num_correct_actions += 1 
+            total_num_actions += 1 
 
             am.paths_tree[idx] = state 
 
@@ -1109,6 +1030,12 @@ def random_top_k(valid, num_leaves, save_prefix:str="", save_states=True): # val
                 num_corrects[i] += 1 
             i += 1 
         
+        correct_action_counts.append(num_correct_actions) 
+        total_action_counts.append(total_num_actions) 
+
+        action_accuracy = num_correct_actions / total_num_actions 
+        action_accuracies.append(action_accuracy) 
+        
         num_tests += 1 
 
         # save states 
@@ -1122,9 +1049,10 @@ def random_top_k(valid, num_leaves, save_prefix:str="", save_states=True): # val
         print("RANDOM: VALID: TOP",num_leaves,"GUESS SUCCESS RATES:", res ) 
     else: 
         print("RANDOM: TEST: TOP",num_leaves,"GUESS SUCCESS RATES:", res ) 
+    print("AVG ACTION ACCURACY",sum(action_accuracies)/num_tests) 
     print() 
 
-    return res 
+    return res, correct_action_counts, total_action_counts 
 
 
 

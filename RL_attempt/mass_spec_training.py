@@ -18,22 +18,49 @@ import params
 import copy 
 import random 
 
-path_prefix = './RL_attempt'
-gcn_lr = 0.00005
-predictor_lr = 0.00005 
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu") 
+print(device) 
+
+
+path_prefix = "" 
+
+test_ftrees = [] 
+test_labels = [] 
+ftrees = [] 
+labels = [] 
+
+num_epochs = 0 
+test_epoch_interval = 0 
+
+gcn_lr = 0.0 
+predictor_lr = 0.0 
+
 with_pooling_func = False 
 
 
+def init(path_prefix:str, gcn_lr:float,  predictor_lr:float, num_epochs:int=50, test_epoch_interval:int=5, with_pooling_func:bool=False): 
 
-device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu") 
-print(device)
+    # load data 
 
-print("Loading data...")
 
-test_smiless, test_ftrees, test_peakslist = dataloader.get_data('test') 
-test_labels = [] 
-for test_peaks in test_peakslist: 
-    test_labels.append(utils.peaks_to_ms_buckets(test_peaks, MassSpec.num_buckets, MassSpec.bucket_size)) 
+    smiless, ftrees, peakslist = dataloader.get_data('train') 
+    labels = [] 
+    for peaks in peakslist: 
+        labels.append(utils.peaks_to_ms_buckets(peaks, MassSpec.num_buckets, MassSpec.bucket_size)) 
+
+
+    test_smiless, test_ftrees, test_peakslist = dataloader.get_data('test') 
+    test_labels = [] 
+    for test_peaks in test_peakslist: 
+        test_labels.append(utils.peaks_to_ms_buckets(test_peaks, MassSpec.num_buckets, MassSpec.bucket_size)) 
+    
+    # update global variables with these parameters 
+    globals().update(locals()) 
+
+
+
+
+
 
 # test stuff 
 def test(epoch): 
@@ -43,7 +70,7 @@ def test(epoch):
     for i in range(len(test_ftrees)): 
 
         
-        test_mass_spec.run(ftrees[i]) 
+        test_mass_spec.run(test_ftrees[i]) 
         embedding = test_mass_spec.pred.to(device) 
 
         # run the predictor 
@@ -51,7 +78,7 @@ def test(epoch):
         # get top_k 
         top_k = torch.argsort(amplitude_res)[-MassSpec.num_peaks_considered:].to(device) 
         
-        amplitude_loss = MassSpec.index_select_loss(amplitude_res, labels[i].to(device), top_k) 
+        amplitude_loss = MassSpec.index_select_loss(amplitude_res, test_labels[i].to(device), top_k) 
         total_loss += amplitude_loss.cpu().item() 
         num_tests += 1 
     
@@ -65,48 +92,33 @@ def test(epoch):
 
 
 
-num_epochs = 50 
-test_epoch_interval = 5 
-
-# training 
-smiless, ftrees, peakslist = dataloader.get_data('train') 
-
-labels = [] 
-
-for peaks in peakslist: 
-    labels.append(utils.peaks_to_ms_buckets(peaks, MassSpec.num_buckets, MassSpec.bucket_size)) 
-
-
-print("Starting")
 
 def train(): 
 
     mass_spec = MassSpec(True, None, path_prefix+'/models/mass_spec_training/FTreeGCN_training_epoch_0.pt', path_prefix+'/models/mass_spec_training/FTreeAmplitudePredictor_training_epoch_0.pt', gcn_learning_rate=gcn_lr, predictor_learning_rate=predictor_lr, with_pooling_func=with_pooling_func, device=device) 
 
-    train_ress = [] 
-    ress = [] 
-
     for epoch in range(1, 1+num_epochs): 
         
-        train_ress.append(mass_spec.train(ftrees, labels)) 
+        train_res = mass_spec.train(ftrees, labels) 
         print(epoch, end=' ') 
+
+
+        fout = open(path_prefix+"/models/mass_spec_training/train_losses.txt", 'a+') 
+        fout.write(str(train_res)) 
+        fout.write("\n") 
+        fout.close() 
+
 
         if epoch%test_epoch_interval == 0: 
             mass_spec.save(path_prefix+'/models/mass_spec_training/FTreeGCN_training_epoch_'+str(epoch)+'.pt') 
             mass_spec.save_amplitude_predictor(path_prefix+'/models/mass_spec_training/FTreeAmplitudePredictor_training_epoch_'+str(epoch)+'.pt')
-            ress.append(test(epoch)) 
-            print("TRAIN:", train_ress[-1])
+            res = test(epoch) 
     
-    fout = open(path_prefix+"/models/mass_spec_training/losses.txt", 'w') 
-    for res in ress: 
-        fout.write(str(res)) 
-        fout.write("\n") 
-    fout.close() 
+            fout = open(path_prefix+"/models/mass_spec_training/losses.txt", 'a+') 
+            fout.write(str(res)) 
+            fout.write("\n") 
+            fout.close() 
 
-    fout = open(path_prefix+"/models/mass_spec_training/train_losses.txt", 'w') 
-    for train_res in train_ress: 
-        fout.write(str(train_res)) 
-        fout.write("\n") 
-    fout.close() 
+    
 
 

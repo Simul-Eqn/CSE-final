@@ -1,6 +1,0 @@
-baselines
-torch
-numpy
-networkx
-rdkit
-molmass
