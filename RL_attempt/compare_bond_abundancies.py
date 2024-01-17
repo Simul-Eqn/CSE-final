@@ -19,11 +19,19 @@ import copy
 import random 
 
 
+seed = 10 
+
+dgl.seed(seed) 
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed) 
+random.seed(seed) 
+
+
 
 save_states = False 
 k = 100 
 num_guesses_per_state = 2 
-test_type = "max_12" # rmbr to change astar_search.py max_num_heavy_atoms based on test_type ---------------- THIS IS VERY IMPT WEIORFHWOEFNLSKNF:FHUEBF:SJKFN:SEIHF:SIENF:SNFEFLSBFSKLIHEB 
+test_type = "max_12" 
 
 filter_away_not_0_1 = False 
 

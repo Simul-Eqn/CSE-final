@@ -5,7 +5,7 @@ import numpy as np
 cases = {
     'max_12_filtered_0_1': {'test_type': 'max_12_filtered_0_1', 'epoch_range': range(5, 101, 5), 'plot_title':'SCORES - MAX 12 \n(either non-aromatic or with one benzene ring only)'}, 
     'max_12': {'test_type': 'max_12', 'epoch_range': range(5, 101, 5), 'plot_title':'SCORES - MAX 12'}, 
-    'max_15': {'test_type': 'max_15', 'epoch_range': range(5, 101, 5), 'plot_title':'SCORES - MAX 15'} 
+    #'max_15': {'test_type': 'max_15', 'epoch_range': range(5, 101, 5), 'plot_title':'SCORES - MAX 15'} 
 }
 
 plt.figure() 
@@ -30,7 +30,7 @@ for k, v in cases.items():
                     #n = n/(n.shape[0]) 
                     a = np.array(anomalous) 
                     #a = a/(a.shape[0]) 
-                    print(epoch, n.size, a.size, max(n), max(a))
+                    print(epoch, n.size, a.size, np.mean(n), np.std(n), np.mean(a), np.std(a))
                     
                     plt.hist(n, label='normal', alpha=0.5, color='green', bins=bins, weights=np.ones_like(n, dtype=np.float32)/(n.size)) 
                     plt.hist(a, label='anomalous', alpha=0.5, color='red', bins=bins, weights=np.ones_like(a, dtype=np.float32)/(a.size)) 

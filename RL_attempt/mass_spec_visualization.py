@@ -1,3 +1,7 @@
+sample_mass_spec_path = './RL_attempt/mass_spec_lr_search_without_pooling/search_3e-07_1e-06/models/mass_spec_training/FTreeGCN_training_epoch_20.pt'
+sample_predictor_path = './RL_attempt/mass_spec_lr_search_without_pooling/search_3e-07_1e-06/models/mass_spec_training/FTreeAmplitudePredictor_training_epoch_20.pt' 
+# path to mass spec used for sampling 
+
 import os
 os.environ['DGLBACKEND'] = 'pytorch'
 
@@ -26,7 +30,7 @@ save_path_prefix = './RL_attempt/figures/mass_spec_comparison/'
 # MAKE GRAPH - TRAIN LOSSES 
 plt.rcParams['figure.figsize'] = [10,5]
 plt.figure() 
-epoch_nums = [i for i in range(1, 51)] 
+epoch_nums = [i for i in range(1, 31)] 
 
 for gcn_lr in [3e-07]: 
     for predictor_lr in [3e-07, 5e-07, 1e-06, 5e-06, 1e-05]: 
@@ -40,7 +44,7 @@ for gcn_lr in [3e-07]:
         
         plt.plot(epoch_nums, losses, label=str(gcn_lr)+", "+str(predictor_lr))  
 
-plt.legend(loc='upper center', bbox_to_anchor=(0.6, 0.6),ncol=3, fancybox=True, shadow=True, title="LEGEND: [GCN_learning_rate], [predictor_learning_rate]") 
+plt.legend(loc='upper right', ncol=3, fancybox=True, shadow=True, title="LEGEND: [GCN_learning_rate], [predictor_learning_rate]") 
 plt.xlabel("Epoch number") 
 plt.ylabel("Train loss (mse)") 
 plt.title("Train losses for Fragment Tree GCN and predictor to predict original mass spec") 
@@ -52,7 +56,7 @@ plt.show()
 # MAKE GRAPH - TEST LOSSES 
 plt.rcParams['figure.figsize'] = [10,5]
 plt.figure() 
-epoch_nums = [i for i in range(5, 51, 5)] 
+epoch_nums = [i for i in range(5, 31, 5)] 
 
 for gcn_lr in [3e-07]: 
     for predictor_lr in [3e-07, 5e-07, 1e-06, 5e-06, 1e-05]: 
@@ -66,12 +70,65 @@ for gcn_lr in [3e-07]:
         
         plt.plot(epoch_nums, losses, label=str(gcn_lr)+", "+str(predictor_lr))  
 
-plt.legend(loc='upper center', bbox_to_anchor=(0.6, 0.6),ncol=3, fancybox=True, shadow=True, title="LEGEND: [GCN_learning_rate], [predictor_learning_rate]") 
+plt.legend(loc='upper right', ncol=3, fancybox=True, shadow=True, title="LEGEND: [GCN_learning_rate], [predictor_learning_rate]") 
 plt.xlabel("Epoch number") 
 plt.ylabel("Test loss (mse)") 
 plt.title("Test losses for Fragment Tree GCN and predictor to predict original mass spec") 
 plt.savefig(save_path_prefix+"test_loss.svg")
 plt.show() 
+
+
+
+# MAKE GRAPH - TRAIN LOSSES, epoch 20 and after 
+plt.rcParams['figure.figsize'] = [10,5]
+plt.figure() 
+epoch_nums = [i for i in range(20, 31)] 
+
+for gcn_lr in [3e-07]: 
+    for predictor_lr in [3e-07, 5e-07, 1e-06, 5e-06, 1e-05]: 
+        path_prefix = './RL_attempt/mass_spec_lr_search_without_pooling/search_'+str(gcn_lr)+"_"+str(predictor_lr) 
+
+        losses_file = open(path_prefix+"/models/mass_spec_training/train_losses.txt", 'r') 
+        losses = losses_file.readlines() 
+        losses_file.close() 
+
+        losses = [float(l) for l in losses][19:] 
+        
+        plt.plot(epoch_nums, losses, label=str(gcn_lr)+", "+str(predictor_lr))  
+
+plt.legend(loc='upper right', ncol=3, fancybox=True, shadow=True, title="LEGEND: [GCN_learning_rate], [predictor_learning_rate]") 
+plt.xlabel("Epoch number") 
+plt.ylabel("Train loss (mse)") 
+plt.title("Train losses for Fragment Tree GCN and predictor to predict original mass spec - epoch 20 and after") 
+plt.savefig(save_path_prefix+"train_loss_epoch_20_and_after.svg")
+plt.show() 
+
+
+
+# MAKE GRAPH - TEST LOSSES, epoch 20 and after 
+plt.rcParams['figure.figsize'] = [10,5]
+plt.figure() 
+epoch_nums = [i for i in range(20, 31, 5)] 
+
+for gcn_lr in [3e-07]: 
+    for predictor_lr in [3e-07, 5e-07, 1e-06, 5e-06, 1e-05]: 
+        path_prefix = './RL_attempt/mass_spec_lr_search_without_pooling/search_'+str(gcn_lr)+"_"+str(predictor_lr) 
+
+        losses_file = open(path_prefix+"/models/mass_spec_training/losses.txt", 'r') 
+        losses = losses_file.readlines() 
+        losses_file.close() 
+
+        losses = [float(l) for l in losses][3:] 
+        
+        plt.plot(epoch_nums, losses, label=str(gcn_lr)+", "+str(predictor_lr))  
+
+plt.legend(loc='upper right', ncol=3, fancybox=True, shadow=True, title="LEGEND: [GCN_learning_rate], [predictor_learning_rate]") 
+plt.xlabel("Epoch number") 
+plt.ylabel("Test loss (mse)") 
+plt.title("Test losses for Fragment Tree GCN and predictor to predict original mass spec - epoch 20 and after") 
+plt.savefig(save_path_prefix+"test_loss_epoch_20_and_after.svg")
+plt.show() 
+
 
 
 
@@ -90,14 +147,14 @@ for get in ['train', 'test']:
         test_labels.append(utils.peaks_to_ms_buckets(test_peaks, MassSpec.num_buckets, MassSpec.bucket_size)) 
 
     # get result 
-    path = './RL_attempt/mass_spec_lr_search_without_pooling/search_3e-07_3e-07/models/mass_spec_training/FTreeGCN_training_epoch_35.pt'
-    predictor_path = './RL_attempt/mass_spec_lr_search_without_pooling/search_3e-07_3e-07/models/mass_spec_training/FTreeAmplitudePredictor_training_epoch_35.pt'
+    path = sample_mass_spec_path 
+    predictor_path = sample_predictor_path 
     save_path_prefix = './RL_attempt/figures/mass_spec_comparison/'+get+'/'
 
 
     ms = MassSpec(True, None, path, predictor_path, gcn_learning_rate=0, predictor_learning_rate = 0, device=device) 
 
-    for test_idx in range(len(test_smiless)) : 
+    for test_idx in range(min(len(test_smiless), 100)) : 
         ms.run(test_ftrees[test_idx]) 
         embedding = ms.pred.to(device) 
         amplitude_res = ms.amplitude_predictor(embedding)[0].to(device) 

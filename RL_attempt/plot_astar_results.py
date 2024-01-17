@@ -3,13 +3,78 @@ import os
 import matplotlib.pyplot as plt 
 import numpy as np 
 
+import utils 
+import dataloader 
+
 
 def plot_results(k = 100, 
                  num_guesses_per_state = 2, 
                  test_type = "max_12", 
                  gcn_lrs = [5e-04], 
                  nus = [0.05], 
-                 cannots = [] ):
+                 cannots = [], 
+                 plot_target:bool = True, 
+                 max_num_atoms = 12, 
+                 filter_0_1:bool = False):
+    
+
+    if plot_target: 
+        # before anything, get correct answer for single bond abundancies 
+        import astar_search 
+        astar_search.init(0.5, max_num_atoms, filter_0_1) 
+
+
+        valid_single_bond_percents = [] 
+        for idx in range(astar_search.valid_count): 
+            num_single_bonds = 0 
+            total_num_bonds = 0 
+            target_graph = utils.SMILEStoGraph(astar_search.test_filtered_smiless[idx]) 
+            for eidx in range(len(target_graph.edata['bondTypes'])): 
+                
+                idx = 1 
+                while idx < len(target_graph.edata['bondTypes'][eidx]): 
+                    if target_graph.edata['bondTypes'][eidx, idx].item() == 1: 
+                        break 
+                    idx += 1 
+
+                etype = idx - 1 
+                if etype==0: 
+                    num_single_bonds += 1 
+                
+                total_num_bonds += 1 
+            
+            valid_single_bond_percents.append(num_single_bonds/total_num_bonds) 
+        
+        valid_target_single_bond_percentage = sum(valid_single_bond_percents)/len(valid_single_bond_percents) 
+
+
+        test_single_bond_percents = [] 
+        for idx in range(astar_search.valid_count, len(astar_search.test_filtered_smiless)): 
+            num_single_bonds = 0 
+            total_num_bonds = 0 
+            target_graph = utils.SMILEStoGraph(astar_search.test_filtered_smiless[idx]) 
+            for eidx in range(len(target_graph.edata['bondTypes'])): 
+                
+                idx = 1 
+                while idx < len(target_graph.edata['bondTypes'][eidx]): 
+                    if target_graph.edata['bondTypes'][eidx, idx].item() == 1: 
+                        break 
+                    idx += 1 
+
+                etype = idx - 1 
+                if etype==0: 
+                    num_single_bonds += 1 
+                
+                total_num_bonds += 1 
+            
+            test_single_bond_percents.append(num_single_bonds/total_num_bonds) 
+        
+        test_target_single_bond_percentage = sum(test_single_bond_percents)/len(test_single_bond_percents) 
+
+
+        del astar_search 
+
+
 
     for gcn_lr in gcn_lrs: 
         for nu in nus: 
@@ -67,12 +132,12 @@ def plot_results(k = 100,
             plt.xlabel("Number of guesses allowed") 
             plt.ylabel("Fraction of correct actions taken") 
 
+            xs = [] 
+            ys = [] 
+
             for i in range(len(actions_names)): 
                 name = actions_names[i] 
                 label = name 
-
-                xs = [] 
-                ys = [] 
 
                 dvkey = name 
                 dvval =  actions_data[i] 
@@ -80,10 +145,35 @@ def plot_results(k = 100,
                 xs.append(dvkey) 
                 ys.append(np.mean(np.array(dvval[1])/np.array(dvval[2]))) 
                     
-                plt.plot(xs, ys, label=label) 
-
-            plt.legend(loc="upper right") 
+            plt.bar(xs, ys) 
             plt.savefig(save_path+"/search_"+str(gcn_lr)+"_"+str(nu)+"_"+str(num_guesses_per_state)+"_actions_valid.svg")
+            plt.show() 
+
+
+
+            plt.figure() 
+            plt.title("SINGLE BOND ACTION RATES FOR GCN_LR = "+str(gcn_lr)+", NU = "+str(nu)+" \n("+test_type+", "+str(num_guesses_per_state)+" actions per state, validation)") 
+            plt.xlabel("Number of guesses allowed") 
+            plt.ylabel("Fraction of single bonds as actions taken") 
+
+            xs = [] 
+            ys = [] 
+
+            for i in range(len(actions_names)): 
+                name = actions_names[i] 
+                label = name 
+
+                dvkey = name 
+                dvval =  actions_data[i] 
+
+                xs.append(dvkey) 
+                ys.append(np.mean(np.array(dvval[3])/np.array(dvval[2]))) 
+                    
+            plt.bar(xs, ys) 
+            if plot_target: 
+                plt.bar(['TARGET'], [valid_target_single_bond_percentage]) 
+            
+            plt.savefig(save_path+"/search_"+str(gcn_lr)+"_"+str(nu)+"_"+str(num_guesses_per_state)+"_single_bonds_valid.svg")
             plt.show() 
 
 
@@ -135,12 +225,12 @@ def plot_results(k = 100,
         plt.xlabel("Number of guesses allowed") 
         plt.ylabel("Fraction of correct actions taken") 
 
+        xs = [] 
+        ys = [] 
+
         for i in range(len(actions_names)): 
             name = actions_names[i] 
             label = name 
-
-            xs = [] 
-            ys = [] 
 
             dvkey = name 
             dvval =  actions_data[i] 
@@ -148,9 +238,36 @@ def plot_results(k = 100,
             xs.append(dvkey) 
             ys.append(np.mean(np.array(dvval[1])/np.array(dvval[2]))) 
                 
-            plt.plot(xs, ys, label=label) 
-
-        plt.legend(loc="upper right") 
+        plt.bar(xs, ys) 
         plt.savefig(save_path+"/search_"+str(gcn_lr)+"_"+str(nu)+"_"+str(num_guesses_per_state)+"_actions_test.svg")
         plt.show() 
+
+
+
+
+        plt.figure() 
+        plt.title("SINGLE BOND ACTION RATES FOR GCN_LR = "+str(gcn_lr)+", NU = "+str(nu)+" \n("+test_type+", "+str(num_guesses_per_state)+" actions per state, test)") 
+        plt.xlabel("Number of guesses allowed") 
+        plt.ylabel("Fraction of single bonds as actions taken") 
+
+        xs = [] 
+        ys = [] 
+
+        for i in range(len(actions_names)): 
+            name = actions_names[i] 
+            label = name 
+
+            dvkey = name 
+            dvval =  actions_data[i] 
+
+            xs.append(dvkey) 
+            ys.append(np.mean(np.array(dvval[3])/np.array(dvval[2]))) 
+                
+        plt.bar(xs, ys) 
+        if plot_target: 
+            plt.bar(['TARGET'], [test_target_single_bond_percentage]) 
+        plt.savefig(save_path+"/search_"+str(gcn_lr)+"_"+str(nu)+"_"+str(num_guesses_per_state)+"_single_bonds_test.svg")
+        plt.show() 
+
+
 

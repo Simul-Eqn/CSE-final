@@ -11,6 +11,7 @@ seed = 10
 
 dgl.seed(seed) 
 torch.manual_seed(seed)
+torch.cuda.manual_seed(seed) 
 random.seed(seed) 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -19,7 +20,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("\nMASS SPEC TRAINING:")
 import mass_spec_training 
 mass_spec_training.device = device 
-mass_spec_training.init("", 0.0, 0.0, num_epochs=50, test_epoch_interval=5, with_pooling_func=False) 
+mass_spec_training.init("", 0.0, 0.0, num_epochs=30, test_epoch_interval=5, with_pooling_func=False) 
 
 # search possible learning rates 
 for gcn_lr in [3e-07]: 

@@ -24,7 +24,7 @@ import queue
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu") 
 print(device)
 
-mass_spec_gcn_path = './RL_attempt/mass_spec_lr_search_with_pooling/search_3e-07_3e-07/models/mass_spec_training/FTreeGCN_training_epoch_35.pt' 
+mass_spec_gcn_path = './RL_attempt/mass_spec_lr_search_without_pooling/search_3e-07_1e-06/models/mass_spec_training/FTreeGCN_training_epoch_20.pt'  # an arbritrary path, as this wil only be used to prevent errors 
 path_prefix = './RL_attempt/astar_search/' 
 
 #gcn_lr = 0.00004 
@@ -81,14 +81,15 @@ def init(valid_fraction:float,
         # filter away molecules that are too large 
         if sum(utils.smiles_to_atom_counts(test_smiless[idx], include_H=False)) > max_num_heavy_atoms: 
             continue 
+
+         # make sure that we are only learning those with benzene or no benzene but not other aromatic structures 
+        aromatic_bonds = [] 
+        for e in range(len(target_graph.edata['bondTypes'])//2): 
+            if target_graph.edata['bondTypes'][2*e,4] == 1: 
+                aromatic_bonds.append(e) 
         
         #start_type = 0 
         if (filter_away_not_0_1): 
-            # make sure that we are only learning those with benzene or no benzene but not other aromatic structures 
-            aromatic_bonds = [] 
-            for e in range(len(target_graph.edata['bondTypes'])//2): 
-                if target_graph.edata['bondTypes'][2*e,4] == 1: 
-                    aromatic_bonds.append(e) 
             
             if len(aromatic_bonds) != 0 and len(aromatic_bonds) != 6: continue # don't try this 
             start_type = 0 # -------------------------------------------------------------------------------------------------
@@ -116,6 +117,9 @@ def init(valid_fraction:float,
                         break 
                 
                 if skip: continue 
+        else: 
+            if len(aromatic_bonds) == len(target_graph.edata['bondTypes'])//2: 
+                continue # skip this test case because there's no action to take 
         
         mass_spec = MassSpec(False, test_ftrees[idx], mass_spec_gcn_path, None, device=device) # path doesn't have to be correct, just needed for syntax issues 
         init_formula = CalcMolFormula(Chem.MolFromSmiles(test_smiless[idx]))  
@@ -136,6 +140,9 @@ def init(valid_fraction:float,
 
         if filter_away_not_0_1: 
             test_start_types.append(start_type) 
+        else: 
+            # set it to -1 as it should not initialize like that 
+            test_start_types.append(-1) 
 
 
 
@@ -151,6 +158,7 @@ def test_first_k(epoch, num_leaves, save_prefix:str="", save_states=True): # NOT
 
     action_accuracies = [] 
     correct_action_counts = [] 
+    single_bond_counts = [] 
     total_action_counts = [] 
 
     issue_count = 0 
@@ -220,6 +228,8 @@ def test_first_k(epoch, num_leaves, save_prefix:str="", save_states=True): # NOT
         num_correct_actions = 0 
         total_num_actions = 0 
 
+        num_single_bond_actions = 0 
+
         while (not pq.empty()) and (not leaves.full()):
             score, state_tuple, pair = pq.get_nowait()
             idx, state = state_tuple 
@@ -227,6 +237,9 @@ def test_first_k(epoch, num_leaves, save_prefix:str="", save_states=True): # NOT
             if pair[0] in correct_actions: 
                 num_correct_actions += 1 
             total_num_actions += 1 
+
+            if pair[0].type == 0: 
+                num_single_bond_actions += 1 
 
             am.paths_tree[idx] = state 
 
@@ -298,6 +311,8 @@ def test_first_k(epoch, num_leaves, save_prefix:str="", save_states=True): # NOT
         correct_action_counts.append(num_correct_actions) 
         total_action_counts.append(total_num_actions) 
 
+        single_bond_counts.append(num_single_bond_actions) 
+
         action_accuracy = num_correct_actions / total_num_actions 
         action_accuracies.append(action_accuracy) 
         
@@ -312,9 +327,10 @@ def test_first_k(epoch, num_leaves, save_prefix:str="", save_states=True): # NOT
     print() 
     print("EPOCH",epoch,"FIRST",num_leaves,"GUESS SUCCESS RATES:", res ) 
     print("AVG ACTION ACCURACY:",sum(action_accuracies)/num_tests) 
+    print("FRACTION OF SINGLE BONDS:", sum((np.array(single_bond_counts) / np.array(total_action_counts))/num_tests))
     print() 
 
-    return res, correct_action_counts, total_action_counts 
+    return res, correct_action_counts, total_action_counts, single_bond_counts 
 
 
 
@@ -328,6 +344,7 @@ def valid_first_k(epoch, num_leaves, save_prefix:str="", save_states=True): # NO
     action_accuracies = [] 
     correct_action_counts = [] 
     total_action_counts = [] 
+    single_bond_counts = [] 
 
     issue_count = 0 
 
@@ -396,6 +413,8 @@ def valid_first_k(epoch, num_leaves, save_prefix:str="", save_states=True): # NO
         num_correct_actions = 0 
         total_num_actions = 0 
 
+        num_single_bond_actions = 0 
+
         while (not pq.empty()) and (not leaves.full()):
             score, state_tuple, pair = pq.get_nowait()
             idx, state = state_tuple 
@@ -403,6 +422,9 @@ def valid_first_k(epoch, num_leaves, save_prefix:str="", save_states=True): # NO
             if pair[0] in correct_actions: 
                 num_correct_actions += 1 
             total_num_actions += 1 
+
+            if pair[0].type == 0: 
+                num_single_bond_actions += 1 
 
             am.paths_tree[idx] = state 
 
@@ -477,6 +499,8 @@ def valid_first_k(epoch, num_leaves, save_prefix:str="", save_states=True): # NO
 
         action_accuracy = num_correct_actions / total_num_actions 
         action_accuracies.append(action_accuracy) 
+
+        single_bond_counts.append(num_single_bond_actions) 
         
         num_tests += 1 
 
@@ -489,9 +513,10 @@ def valid_first_k(epoch, num_leaves, save_prefix:str="", save_states=True): # NO
     print() 
     print("VALID: EPOCH",epoch,"FIRST",num_leaves,"GUESS SUCCESS RATES:", res ) 
     print("AVG ACTION ACCURACY:",sum(action_accuracies)/num_tests) 
+    print("FRACTION OF SINGLE BONDS:", sum((np.array(single_bond_counts) / np.array(total_action_counts))/num_tests))
     print() 
 
-    return res, correct_action_counts, total_action_counts 
+    return res, correct_action_counts, total_action_counts, single_bond_counts 
 
 
 
@@ -508,6 +533,8 @@ def test_top_k(epoch, num_leaves, save_prefix:str="", save_states=True):
     correct_action_counts = [] 
     total_action_counts = [] 
 
+    single_bond_counts = [] 
+
     issue_count = 0 
 
     for test_idx in range(valid_count, len(test_filtered_smiless)): 
@@ -580,6 +607,8 @@ def test_top_k(epoch, num_leaves, save_prefix:str="", save_states=True):
         num_correct_actions = 0 
         total_num_actions = 0 
 
+        num_single_bond_actions = 0 
+
         while (not pq.empty()) and (not leaves.full()):
             score, state_tuple, pair = pq.get_nowait()
             idx, state = state_tuple 
@@ -587,6 +616,9 @@ def test_top_k(epoch, num_leaves, save_prefix:str="", save_states=True):
             if pair[0] in correct_actions: 
                 num_correct_actions += 1 
             total_num_actions += 1 
+
+            if pair[0].type == 0: 
+                num_single_bond_actions += 1 
 
             am.paths_tree[idx] = state 
 
@@ -661,6 +693,8 @@ def test_top_k(epoch, num_leaves, save_prefix:str="", save_states=True):
 
         action_accuracy = num_correct_actions / total_num_actions 
         action_accuracies.append(action_accuracy) 
+
+        single_bond_counts.append(num_single_bond_actions) 
         
         num_tests += 1 
 
@@ -674,9 +708,10 @@ def test_top_k(epoch, num_leaves, save_prefix:str="", save_states=True):
     print() 
     print("EPOCH",epoch,"TOP",num_leaves,"GUESS SUCCESS RATES:", res ) 
     print("AVG ACTION ACCURACY:",sum(action_accuracies)/num_tests) 
+    print("FRACTION OF SINGLE BONDS:", sum((np.array(single_bond_counts) / np.array(total_action_counts))/num_tests))
     print() 
 
-    return res, correct_action_counts, total_action_counts 
+    return res, correct_action_counts, total_action_counts, single_bond_counts 
 
 
 # valid top k function 
@@ -690,6 +725,8 @@ def valid_top_k(epoch, num_leaves, save_prefix:str="", save_states=True):
     action_accuracies = [] 
     correct_action_counts = [] 
     total_action_counts = [] 
+
+    single_bond_counts = [] 
 
     for test_idx in range(valid_count): 
         # target 
@@ -761,6 +798,8 @@ def valid_top_k(epoch, num_leaves, save_prefix:str="", save_states=True):
         num_correct_actions = 0 
         total_num_actions = 0 
 
+        num_single_bond_actions = 0 
+
         while (not pq.empty()) and (not leaves.full()):
             score, state_tuple, pair = pq.get_nowait()
             idx, state = state_tuple 
@@ -768,6 +807,9 @@ def valid_top_k(epoch, num_leaves, save_prefix:str="", save_states=True):
             if pair[0] in correct_actions: 
                 num_correct_actions += 1 
             total_num_actions += 1 
+
+            if pair[0].type == 0: 
+                num_single_bond_actions += 1 
 
             am.paths_tree[idx] = state 
 
@@ -842,6 +884,8 @@ def valid_top_k(epoch, num_leaves, save_prefix:str="", save_states=True):
 
         action_accuracy = num_correct_actions / total_num_actions 
         action_accuracies.append(action_accuracy) 
+
+        single_bond_counts.append(num_single_bond_actions) 
         
         num_tests += 1 
 
@@ -855,9 +899,10 @@ def valid_top_k(epoch, num_leaves, save_prefix:str="", save_states=True):
     print() 
     print("VALID: EPOCH",epoch,"TOP",num_leaves,"GUESS SUCCESS RATES:", res ) 
     print("AVG ACTION ACCURACY:",sum(action_accuracies)/num_tests) 
+    print("FRACTION OF SINGLE BONDS:", sum((np.array(single_bond_counts) / np.array(total_action_counts))/num_tests))
     print() 
 
-    return res, correct_action_counts, total_action_counts 
+    return res, correct_action_counts, total_action_counts, single_bond_counts 
 
 
 
@@ -882,6 +927,8 @@ def random_top_k(valid, num_leaves, save_prefix:str="", save_states=True): # val
     action_accuracies = [] 
     correct_action_counts = [] 
     total_action_counts = [] 
+
+    single_bond_counts = [] 
 
     for test_idx in r: 
         # target 
@@ -954,6 +1001,8 @@ def random_top_k(valid, num_leaves, save_prefix:str="", save_states=True): # val
         num_correct_actions = 0 
         total_num_actions = 0 
 
+        num_single_bond_actions = 0 
+
         while (not pq.empty()) and (not leaves.full()):
             score, state_tuple, pair = pq.get_nowait()
             idx, state = state_tuple 
@@ -961,6 +1010,9 @@ def random_top_k(valid, num_leaves, save_prefix:str="", save_states=True): # val
             if pair[0] in correct_actions: 
                 num_correct_actions += 1 
             total_num_actions += 1 
+
+            if pair[0].type == 0: 
+                num_single_bond_actions += 1 
 
             am.paths_tree[idx] = state 
 
@@ -1035,6 +1087,8 @@ def random_top_k(valid, num_leaves, save_prefix:str="", save_states=True): # val
 
         action_accuracy = num_correct_actions / total_num_actions 
         action_accuracies.append(action_accuracy) 
+
+        single_bond_counts.append(num_single_bond_actions) 
         
         num_tests += 1 
 
@@ -1050,9 +1104,10 @@ def random_top_k(valid, num_leaves, save_prefix:str="", save_states=True): # val
     else: 
         print("RANDOM: TEST: TOP",num_leaves,"GUESS SUCCESS RATES:", res ) 
     print("AVG ACTION ACCURACY",sum(action_accuracies)/num_tests) 
+    print("FRACTION OF SINGLE BONDS:", sum((np.array(single_bond_counts) / np.array(total_action_counts))/num_tests))
     print() 
 
-    return res, correct_action_counts, total_action_counts 
+    return res, correct_action_counts, total_action_counts, single_bond_counts 
 
 
 
@@ -1068,6 +1123,8 @@ def try_top_k_depth(epoch, num_leaves, test_depth, save_prefix:str, save_states:
     correct_action_counts = [] 
     total_action_counts = [] 
 
+    single_bond_counts = [] 
+
     num_tests = 0 
     test_state_ai = test_state_ai = MolStateAI(False, path_prefix+'/MolStateGCN_epoch_'+str(epoch)+'.pt', path_prefix+"/center_epoch_"+str(epoch)+".pt", path_prefix+"/radius_epoch_"+str(epoch)+".txt", device=device) 
 
@@ -1081,44 +1138,6 @@ def try_top_k_depth(epoch, num_leaves, test_depth, save_prefix:str, save_states:
     for test_idx in r: 
         # target 
         test_target_graph = utils.SMILEStoGraph(test_filtered_smiless[test_idx]) 
-
-
-        """
-
-        # make sure it has a possible init state (by looking at aromatic bonds) 
-        aromatic_bonds = [] 
-        for e in range(len(test_target_graph.edata['bondTypes'])//2): 
-            if test_target_graph.edata['bondTypes'][2*e,4] == 1: 
-                aromatic_bonds.append(e) 
-        
-        test_start_type = 0 
-        if len(aromatic_bonds) != 0 and len(aromatic_bonds) != 6: continue # don't try this 
-        if len(aromatic_bonds) == 6: 
-            test_start_type = 1 
-            idxs = set() 
-            edge_list = list(test_target_graph.edges()) 
-            for e in aromatic_bonds: 
-                idxs.add(edge_list[0][e].item()) 
-                idxs.add(edge_list[1][e].item()) 
-            
-            idxs = list(idxs) 
-            if len(idxs) != 6: continue # means not benzene ring 
-
-            # check that all have degree 2 
-            degs = [0 for _ in range(6)] 
-            for e in aromatic_bonds: 
-                degs[idxs.index(edge_list[0][e].item())] += 1 
-                degs[idxs.index(edge_list[1][e].item())] += 1 
-            
-            skip = False 
-            for d in degs: 
-                if d != 2: 
-                    skip = True 
-                    break 
-            
-            if skip: continue 
-
-        """ 
 
 
         # remove bonds from graph to get a start graph - use convenient undo action function 
@@ -1196,6 +1215,8 @@ def try_top_k_depth(epoch, num_leaves, test_depth, save_prefix:str, save_states:
         num_correct_actions = 0 
         total_num_actions = 0 
 
+        num_single_bond_actions = 0 
+
         while (not pq.empty()) and (not leaves.full()):
             score, state_tuple, pair = pq.get_nowait()
             idx, state = state_tuple 
@@ -1203,6 +1224,9 @@ def try_top_k_depth(epoch, num_leaves, test_depth, save_prefix:str, save_states:
             if pair[0] in removed_actions: 
                 num_correct_actions += 1 
             total_num_actions += 1 
+
+            if pair[0].type == 0: 
+                num_single_bond_actions += 1 
 
             am.paths_tree[idx] = state 
 
@@ -1276,6 +1300,8 @@ def try_top_k_depth(epoch, num_leaves, test_depth, save_prefix:str, save_states:
 
         action_accuracy = num_correct_actions / total_num_actions 
         action_accuracies.append(action_accuracy) 
+
+        single_bond_counts.append(num_single_bond_actions) 
         
         num_tests += 1 
 
@@ -1291,19 +1317,23 @@ def try_top_k_depth(epoch, num_leaves, test_depth, save_prefix:str, save_states:
 
     print("EPOCH",epoch,"DEPTH",test_depth,"TOP",num_leaves,"GUESS SUCCESS RATES:", res ) 
     print("EPOCH",epoch,"DEPTH",test_depth,"AVG ACTION ACCURACY",sum(action_accuracies)/num_tests) 
+    print("FRACTION OF SINGLE BONDS:", sum((np.array(single_bond_counts) / np.array(total_action_counts))/num_tests))
     print() 
 
-    return res, correct_action_counts, total_action_counts 
+    return res, correct_action_counts, total_action_counts, single_bond_counts 
 
 
 
 # random from some depth 
-def random_top_k_depth(num_leaves, test_depth, save_prefix:str, save_states:bool, valid:bool=False): 
+def random_top_k_depth(num_leaves, test_depth, save_prefix:str, save_states:bool, valid:bool=False): # also get target results here. 
 
     num_corrects = [0 for _ in range(num_leaves)] 
     action_accuracies = [] 
     correct_action_counts = [] 
     total_action_counts = [] 
+
+    single_bond_counts = [] 
+    target_single_bond_percentages = [] 
 
     num_tests = 0 
     test_state_ai = None #MolStateAI(False, path_prefix+'/MolStateGCN_epoch_'+str(epoch)+'.pt', path_prefix+"/HypersphereParams_epoch_"+str(epoch)+".txt", None, None, device=device) 
@@ -1319,43 +1349,6 @@ def random_top_k_depth(num_leaves, test_depth, save_prefix:str, save_states:bool
         # target 
         test_target_graph = utils.SMILEStoGraph(test_filtered_smiless[test_idx]) 
 
-
-        """
-
-        # make sure it has a possible init state (by looking at aromatic bonds) 
-        aromatic_bonds = [] 
-        for e in range(len(test_target_graph.edata['bondTypes'])//2): 
-            if test_target_graph.edata['bondTypes'][2*e,4] == 1: 
-                aromatic_bonds.append(e) 
-        
-        test_start_type = 0 
-        if len(aromatic_bonds) != 0 and len(aromatic_bonds) != 6: continue # don't try this 
-        if len(aromatic_bonds) == 6: 
-            test_start_type = 1 
-            idxs = set() 
-            edge_list = list(test_target_graph.edges()) 
-            for e in aromatic_bonds: 
-                idxs.add(edge_list[0][e].item()) 
-                idxs.add(edge_list[1][e].item()) 
-            
-            idxs = list(idxs) 
-            if len(idxs) != 6: continue # means not benzene ring 
-
-            # check that all have degree 2 
-            degs = [0 for _ in range(6)] 
-            for e in aromatic_bonds: 
-                degs[idxs.index(edge_list[0][e].item())] += 1 
-                degs[idxs.index(edge_list[1][e].item())] += 1 
-            
-            skip = False 
-            for d in degs: 
-                if d != 2: 
-                    skip = True 
-                    break 
-            
-            if skip: continue 
-
-        """ 
 
 
         # remove bonds from graph to get a start graph - use convenient undo action function 
@@ -1429,9 +1422,20 @@ def random_top_k_depth(num_leaves, test_depth, save_prefix:str, save_states:bool
             pass 
 
         
+        # get target percentage of single bond actions 
+        num_target_single_bonds = 0 
+        for target_a in removed_actions: 
+            if target_a.type == 0: 
+                num_target_single_bonds += 1 
+
+        target_single_bond_percentages.append(num_target_single_bonds/len(removed_actions)) 
+
+        
         # get percentage of correct actions 
         num_correct_actions = 0 
         total_num_actions = 0 
+
+        num_single_bond_actions = 0 
 
         while (not pq.empty()) and (not leaves.full()):
             score, state_tuple, pair = pq.get_nowait()
@@ -1440,6 +1444,9 @@ def random_top_k_depth(num_leaves, test_depth, save_prefix:str, save_states:bool
             if pair[0] in removed_actions: 
                 num_correct_actions += 1 
             total_num_actions += 1 
+
+            if pair[0].type == 0: 
+                num_single_bond_actions += 1 
 
             am.paths_tree[idx] = state 
 
@@ -1513,6 +1520,8 @@ def random_top_k_depth(num_leaves, test_depth, save_prefix:str, save_states:bool
 
         action_accuracy = num_correct_actions / total_num_actions 
         action_accuracies.append(action_accuracy) 
+
+        single_bond_counts.append(num_single_bond_actions) 
         
         num_tests += 1 
 
@@ -1521,16 +1530,17 @@ def random_top_k_depth(num_leaves, test_depth, save_prefix:str, save_states:bool
 
     if len(correct_action_counts) == 0: 
         print("DEPTH",test_depth,"HAD NO POSSIBLE CASES!") 
-        return [], [], [] 
+        return [], [], [], [] 
 
     res = np.array(num_corrects)/num_tests 
     res = res.tolist() 
 
     print("RANDOM DEPTH",test_depth,"TOP",num_leaves,"GUESS SUCCESS RATES:", res ) 
     print("RANDOM DEPTH",test_depth,"AVG ACTION ACCURACY",sum(action_accuracies)/num_tests) 
+    print("FRACTION OF SINGLE BONDS:", sum((np.array(single_bond_counts) / np.array(total_action_counts))/num_tests))
     print() 
 
-    return res, correct_action_counts, total_action_counts 
+    return res, correct_action_counts, total_action_counts, single_bond_counts, sum(target_single_bond_percentages)/len(target_single_bond_percentages) 
 
 
 

@@ -3,6 +3,8 @@ import os
 import matplotlib.pyplot as plt 
 import numpy as np 
 
+import utils 
+
 colours = ['lime', 'mediumblue', 'orange', 'gold', 'silver'] 
 random_colour = "red" 
 
@@ -10,9 +12,9 @@ random_colour = "red"
 def plot_results(k = 100, 
                  num_guesses_per_state = 2, 
                  test_type = "max_12", 
-                gcn_lrs = [5e-04], 
-                nus = [0.05], 
-                cannots = [] ):
+                 gcn_lrs = [5e-04], 
+                 nus = [0.05], 
+                 cannots = []):
 
 
     for gcn_lr in gcn_lrs: 
@@ -46,15 +48,17 @@ def plot_results(k = 100,
                     data[name] = {d: eval(raw_data[i*2+1])}  
             
             #print(data)
+            data = dict(sorted(data.items())) 
 
 
             plt.figure() 
-            plt.title("ASTAR SEARCH SUCCESS RATES FOR GCN_LR = "+str(gcn_lr)+", NU = "+str(nu)+" \n("+test_type+", validation)") 
+            plt.title("ASTAR SEARCH SUCCESS RATES FOR GCN_LR = "+str(gcn_lr)+", NU = "+str(nu)+" \n("+test_type+", "+str(num_guesses_per_state)+" actions per state, validation)") 
             plt.xlabel("Number of guesses allowed") 
             plt.ylabel("Fraction of correct outputs") 
             
             cidx = 0 
             for dkey, dval in data.items():  
+                if dkey.strip() == "TARGET": continue 
                 name = dkey 
                 label = name 
 
@@ -80,11 +84,12 @@ def plot_results(k = 100,
 
 
             plt.figure() 
-            plt.title("ASTAR SEARCH SUCCESS RATES FOR GCN_LR = "+str(gcn_lr)+", NU = "+str(nu)+" \n("+test_type+", validation)") 
+            plt.title("ASTAR SEARCH SUCCESS RATES FOR GCN_LR = "+str(gcn_lr)+", NU = "+str(nu)+" \n("+test_type+", "+str(num_guesses_per_state)+" actions per state, validation)") 
             plt.xlabel("Depth") 
             plt.ylabel("Total fraction of correct outputs") 
 
             for dkey, dval in data.items():  
+                if dkey.strip() == "TARGET": continue 
                 name = dkey 
                 label = name 
 
@@ -97,18 +102,19 @@ def plot_results(k = 100,
                     
                 plt.plot(xs, ys, label=label) 
 
-            plt.legend(loc="upper right") 
+            plt.legend() 
             plt.savefig(save_path+'/search_'+str(gcn_lr)+"_"+str(num_guesses_per_state)+"_"+str(nu)+"_depth_compare_success_valid.svg") 
             plt.show() 
 
             
 
             plt.figure() 
-            plt.title("ASTAR SEARCH CORRECT ACTION RATES FOR GCN_LR = "+str(gcn_lr)+", NU = "+str(nu)+" \n("+test_type+", validation)") 
+            plt.title("ASTAR SEARCH CORRECT ACTION RATES FOR GCN_LR = "+str(gcn_lr)+", NU = "+str(nu)+" \n("+test_type+", "+str(num_guesses_per_state)+" actions per state, validation)") 
             plt.xlabel("Depth") 
             plt.ylabel("Fraction of correct actions taken") 
 
             for dkey, dval in data.items():  
+                if dkey.strip() == "TARGET": continue 
                 name = dkey 
                 label = name 
 
@@ -121,9 +127,38 @@ def plot_results(k = 100,
                     
                 plt.plot(xs, ys, label=label) 
 
-            plt.legend(loc="upper right") 
+            plt.legend() 
             plt.savefig(save_path+'/search_'+str(gcn_lr)+"_"+str(num_guesses_per_state)+"_"+str(nu)+"_depth_action_valid.svg") 
             plt.show() 
+
+
+
+
+            plt.figure() 
+            plt.title("SINGLE BOND ACTION RATES FOR GCN_LR = "+str(gcn_lr)+", NU = "+str(nu)+" \n("+test_type+", "+str(num_guesses_per_state)+" actions per state, validation)") 
+            plt.xlabel("Depth") 
+            plt.ylabel("Fraction of single bonds as actions taken") 
+
+            for dkey, dval in data.items():  
+                name = dkey 
+                label = name 
+
+                xs = [] 
+                ys = [] 
+
+                for dvkey, dvval in dval.items(): 
+                    xs.append(dvkey) 
+                    if dkey.strip() == "TARGET": 
+                        ys.append(float(dvval)) 
+                    else: 
+                        ys.append(np.mean(np.array(dvval[3])/np.array(dvval[2]))) 
+                    
+                plt.plot(xs, ys, label=label) 
+
+            plt.legend() 
+            plt.savefig(save_path+'/search_'+str(gcn_lr)+"_"+str(num_guesses_per_state)+"_"+str(nu)+"_depth_single_bonds_valid.svg") 
+            plt.show() 
+
 
 
 
@@ -145,15 +180,18 @@ def plot_results(k = 100,
                 else: 
                     data[name] = {d: eval(raw_data[i*2+1])}  
             
+            data = dict(sorted(data.items())) 
+            
 
             plt.figure() 
-            plt.title("ASTAR SEARCH SUCCESS RATES FOR GCN_LR = "+str(gcn_lr)+", NU = "+str(nu)+" \n("+test_type+", test)") 
+            plt.title("ASTAR SEARCH SUCCESS RATES FOR GCN_LR = "+str(gcn_lr)+", NU = "+str(nu)+" \n("+test_type+", "+str(num_guesses_per_state)+" actions per state, test)") 
             plt.xlabel("Number of guesses allowed") 
             plt.ylabel("Fraction of correct outputs") 
 
             cidx = 0 
 
             for dkey, dval in data.items():  
+                if dkey.strip() == "TARGET": continue 
                 name = dkey 
                 label = name 
                 
@@ -179,11 +217,12 @@ def plot_results(k = 100,
 
 
             plt.figure() 
-            plt.title("ASTAR SEARCH SUCCESS RATES FOR GCN_LR = "+str(gcn_lr)+", NU = "+str(nu)+" \n("+test_type+", test)") 
+            plt.title("ASTAR SEARCH SUCCESS RATES FOR GCN_LR = "+str(gcn_lr)+", NU = "+str(nu)+" \n("+test_type+", "+str(num_guesses_per_state)+" actions per state, test)") 
             plt.xlabel("Depth") 
             plt.ylabel("Total fraction of correct outputs") 
 
             for dkey, dval in data.items():  
+                if dkey.strip() == "TARGET": continue 
                 name = dkey 
                 label = name 
 
@@ -196,7 +235,7 @@ def plot_results(k = 100,
                     
                 plt.plot(xs, ys, label=label) 
 
-            plt.legend(loc="upper right") 
+            plt.legend() 
             plt.savefig(save_path+'/search_'+str(gcn_lr)+"_"+str(num_guesses_per_state)+"_"+str(nu)+"_depth_compare_success_test.svg") 
             plt.show() 
 
@@ -204,11 +243,12 @@ def plot_results(k = 100,
             
 
             plt.figure() 
-            plt.title("ASTAR SEARCH CORRECT ACTION RATES FOR GCN_LR = "+str(gcn_lr)+", NU = "+str(nu)+" \n("+test_type+", test)") 
+            plt.title("ASTAR SEARCH CORRECT ACTION RATES FOR GCN_LR = "+str(gcn_lr)+", NU = "+str(nu)+" \n("+test_type+", "+str(num_guesses_per_state)+" actions per state, test)") 
             plt.xlabel("Depth") 
             plt.ylabel("Fraction of correct actions taken") 
 
             for dkey, dval in data.items():  
+                if dkey.strip() == "TARGET": continue 
                 name = dkey 
                 label = name 
 
@@ -221,8 +261,37 @@ def plot_results(k = 100,
                     
                 plt.plot(xs, ys, label=label) 
 
-            plt.legend(loc="upper right") 
+            plt.legend() 
             plt.savefig(save_path+'/search_'+str(gcn_lr)+"_"+str(num_guesses_per_state)+"_"+str(nu)+"_depth_action_test.svg") 
             plt.show() 
+
+
+
+
+            plt.figure() 
+            plt.title("SINGLE BOND ACTION RATES FOR GCN_LR = "+str(gcn_lr)+", NU = "+str(nu)+" \n("+test_type+", "+str(num_guesses_per_state)+" actions per state, test)") 
+            plt.xlabel("Depth") 
+            plt.ylabel("Fraction of single bonds as actions taken") 
+
+            for dkey, dval in data.items():  
+                name = dkey 
+                label = name 
+
+                xs = [] 
+                ys = [] 
+
+                for dvkey, dvval in dval.items(): 
+                    xs.append(dvkey) 
+                    if dkey.strip() == "TARGET": 
+                        ys.append(float(dvval)) 
+                    else: 
+                        ys.append(np.mean(np.array(dvval[3])/np.array(dvval[2]))) 
+                    
+                plt.plot(xs, ys, label=label) 
+
+            plt.legend() 
+            plt.savefig(save_path+'/search_'+str(gcn_lr)+"_"+str(num_guesses_per_state)+"_"+str(nu)+"_depth_single_bonds_test.svg") 
+            plt.show() 
+
 
 

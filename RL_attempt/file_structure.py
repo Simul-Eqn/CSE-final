@@ -27,6 +27,7 @@ for test_type in ['max_12', 'max_12_filtered_0_1', 'max_15']:
     os.mkdir(path1)
     for gcn_lr in [5e-04]: 
         for nu in [0.1]: 
+            if test_type == "max_15": gcn_lr /= 10 
             search_path = os.path.join(path1, 'search_'+str(gcn_lr)+"_"+str(nu))
             os.mkdir(search_path) 
 
@@ -47,4 +48,5 @@ for test_type in ['max_12_filtered_0_1', 'max_12', 'max_15']:
     os.mkdir(scores_vis_path) 
     for gcn_lr in [5e-04]: 
             for nu in [0.1]: 
+                if test_type == "max_15": gcn_lr /= 10 
                 os.mkdir(os.path.join(scores_vis_path, "search_"+str(gcn_lr)+"_"+str(nu))) 

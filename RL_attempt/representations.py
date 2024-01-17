@@ -283,7 +283,7 @@ class MolStateAI():
     #def rmseloss(pred, labels): 
     #    return torch.sqrt(MassSpec.mseloss(pred, labels)) 
 
-    def __init__(self, training:bool, path, center_path, radius_path, center=None, radius=None,  gcn_lr=params.learning_rate, weight_decay=5e-4, nu=0.2, device=device): 
+    def __init__(self, training:bool, path, center_path, radius_path, center=None, radius=None,  gcn_lr=params.learning_rate, weight_decay=5e-4, nu=0.2, focal_gamma = 0.0, device=device): 
         self.device = device 
 
         self.nu = nu 
@@ -292,6 +292,8 @@ class MolStateAI():
 
         self.training = training 
         self.path = path 
+
+        self.focal_gamma = focal_gamma 
 
         #GCN 
         # set the parameters of the model 
@@ -439,7 +441,8 @@ class MolStateAI():
     def loss_function(self, outputs, target=None, mask=None): # target is a tensor with one element 
         if target==None: target=torch.Tensor([0]).to(self.device) 
         dist,scores = self.anomaly_score(outputs, mask)
-        loss = self.radius ** 2 + (1 / self.nu) * torch.mean(torch.max(target.repeat(scores.shape), scores))
+        base_score_loss = torch.mean(torch.max(target.repeat(scores.shape), scores)) #MolStateAI.mseloss(target.repeat(scores.shape), scores) #(torch.mean(torch.abs(target.repeat(scores.shape) - scores))) 
+        loss = self.radius ** 2 + ( (base_score_loss)**self.focal_gamma ) * (1 / self.nu) * base_score_loss # base_score_loss**self.focal_gamma, so that low loss gives low value, high loss gives higher value, making it focal. 
         return loss, dist, scores
 
     def anomaly_score(self, outputs, mask=None):

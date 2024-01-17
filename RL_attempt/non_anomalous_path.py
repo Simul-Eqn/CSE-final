@@ -1,3 +1,5 @@
+save_chosen_anomalous_states = False # to save memory. Can be set to True if desired. 
+
 # concept: take inspiration from anomaly detection, since it generally has only non-anomalous training data. We do this to save time, since the state space in our thing is very very large. 
 # goal: train the GCN to make an n-dimensional representation of the graph, maximizing the proportion of the non-anomalous data with embeddings contained within it, while minimizing the radius. 
 # finally: GCN considers 
@@ -28,7 +30,6 @@ print(device)
 
 try_memo = True 
 
-
 mass_spec_gcn_path = './RL_attempt/mass_spec_lr_search_loss_top_30/search_0.0001_0.0001/models/mass_spec_training/FTreeGCN_training_epoch_50.pt'
 path_prefix = './RL_attempt/non_anomalous_path_training'
 num_epochs = 0 
@@ -38,6 +39,7 @@ weight_decay = 5e-4
 nu = 0.2 
 discount_factor = 0.9 
 filter_away_not_0_1 = True 
+focal_gamma = 0.0 
 
 max_num_heavy_atoms = 12 
 
@@ -73,6 +75,7 @@ def init(mass_spec_gcn_path:str,
          nu = 0.2, 
          discount_factor = 0.9, 
          filter_away_not_0_1 = True, 
+         focal_gamma = 0.0, 
          max_num_heavy_atoms = 12 ): 
     
     # testing 
@@ -91,12 +94,13 @@ def init(mass_spec_gcn_path:str,
         if sum(utils.smiles_to_atom_counts(test_smiless[idx], include_H=False)) > max_num_heavy_atoms: 
             continue 
 
+        aromatic_bonds = [] 
+        for e in range(len(target_graph.edata['bondTypes'])//2): 
+            if target_graph.edata['bondTypes'][2*e,4] == 1: 
+                aromatic_bonds.append(e) 
+
         if (filter_away_not_0_1): 
             # make sure that we are only learning those with benzene or no benzene but not other aromatic structures 
-            aromatic_bonds = [] 
-            for e in range(len(target_graph.edata['bondTypes'])//2): 
-                if target_graph.edata['bondTypes'][2*e,4] == 1: 
-                    aromatic_bonds.append(e) 
             
             if len(aromatic_bonds) != 0 and len(aromatic_bonds) != 6: continue # don't try this 
             if len(aromatic_bonds) == 6: 
@@ -122,6 +126,9 @@ def init(mass_spec_gcn_path:str,
                         break 
                 
                 if skip: continue 
+        else: 
+            if len(aromatic_bonds) == len(target_graph.edata['bondTypes'])//2: 
+                continue # skip this test case because there's no action to take 
         
         mass_spec = MassSpec(False, test_ftrees[idx], mass_spec_gcn_path, None, device=device) 
         init_formula = CalcMolFormula(Chem.MolFromSmiles(test_smiless[idx]))  
@@ -185,9 +192,6 @@ def init(mass_spec_gcn_path:str,
         test_num_bondss.append(num_bonds) 
 
 
-    # for training 
-    num_epochs = 100 
-    test_epoch_interval = 5 
 
 
 
@@ -242,6 +246,9 @@ def init(mass_spec_gcn_path:str,
                         break 
                 
                 if skip: continue 
+        else: 
+            if len(aromatic_bonds) == len(target_graph.edata['bondTypes'])//2: 
+                continue # skip this train case because there's no action to take 
         
         mass_spec = MassSpec(False, ftrees[idx], mass_spec_gcn_path, None, device=device) 
         init_formula = CalcMolFormula(Chem.MolFromSmiles(smiless[idx]))  
@@ -319,12 +326,14 @@ def init(mass_spec_gcn_path:str,
 def test(epoch, save_path:str): # save states with labels of what they are in a .bin file - not saving anymore, to save memory 
     with torch.no_grad(): # to save memory 
         # test function 
-        state_ai = MolStateAI(False, path_prefix+'/MolStateGCN_epoch_'+str(epoch)+'.pt', path_prefix+"/center_epoch_"+str(epoch)+".pt", path_prefix+"/radius_epoch_"+str(epoch)+".txt", device=device) 
+        state_ai = MolStateAI(False, path_prefix+'/MolStateGCN_epoch_'+str(epoch)+'.pt', path_prefix+"/center_epoch_"+str(epoch)+".pt", path_prefix+"/radius_epoch_"+str(epoch)+".txt", focal_gamma=focal_gamma, device=device) 
 
         # test scores 
         normal_scores = [] 
         anomalous_scores = [] 
 
+        anomalous_states_chosen = [] 
+        anomalous_states_smiless = [] 
         
         for idx in range(len(test_filtered_smiless)): 
             # get graph of target molecule to make MolState 
@@ -337,7 +346,7 @@ def test(epoch, save_path:str): # save states with labels of what they are in a 
             am = AgentMolecule(mass_spec, target_state, state_ai) 
 
 
-            anomalous_states_chosen = [] 
+            
 
             for _ in range(1, 1<<test_num_bondss[idx]): 
                 state, depth = next(test_memo_statess[idx]) 
@@ -346,18 +355,32 @@ def test(epoch, save_path:str): # save states with labels of what they are in a 
 
                 # try testing anomalous 
                 try: 
-                    temp = state.get_next_states(mass_spec.atom_counts[1] - state.get_H_count(), bond_actionss[idx]) 
+                    temp = state.get_next_states(state.get_H_count() - mass_spec.atom_counts[1], bond_actionss[idx]) 
                     if (len(temp) > 0): 
                         i = random.randrange(len(temp))
                         _, _, score = am.state_ai.loss_function(am.state_ai.get_embedding(mass_spec, temp[i], torch.tensor([depth], device=device)))
                         anomalous_scores.append(score.item())
                         anomalous_states_chosen.append(copy.deepcopy(temp[i])) 
+                        anomalous_states_smiless.append(test_filtered_smiless[idx]) 
+                        #print(len(anomalous_states_chosen), end=' ')
 
                 except NoValidActionException: 
+                    #print(":((")
                     pass 
 
+        #print() 
+        #print(len(anomalous_states_chosen))
 
-        MolState.save_states(anomalous_states_chosen, list(range(len(anomalous_states_chosen))), save_path) 
+        if save_chosen_anomalous_states: 
+            # save states 
+            if len(anomalous_states_chosen) != 0: MolState.save_states(anomalous_states_chosen, list(range(len(anomalous_states_chosen))), save_path) 
+
+            # save smiles of states 
+            fout = open(path_prefix+"/test_states_smiless_epoch_"+str(epoch)+".txt", 'w') 
+            for smiles in anomalous_states_smiless: 
+                fout.write(smiles) 
+                fout.write('\n') 
+            fout.close() 
         
         print("EPOCH", epoch, "TEST AVG NORMAL SCORE:", sum(normal_scores)/len(normal_scores), "STDDEV:", np.std(normal_scores)) 
         print("EPOCH", epoch, "TEST AVG ANOMALOUS SCORE:", sum(anomalous_scores)/len(anomalous_scores), "STDDEV:", np.std(anomalous_scores)) 
@@ -375,13 +398,13 @@ def train(start_epoch=0):
         with open(radius_path, 'r') as rfile: 
             radius = float(rfile.readline()) 
 
-        state_ai = MolStateAI(True, path_prefix+'/MolStateGCN_epoch_'+str(start_epoch)+'.pt', center_path , radius_path, center, radius, gcn_lr=gcn_lr, weight_decay=weight_decay, nu=nu, device=device) 
+        state_ai = MolStateAI(True, path_prefix+'/MolStateGCN_epoch_'+str(start_epoch)+'.pt', center_path , radius_path, center, radius, gcn_lr=gcn_lr, weight_decay=weight_decay, nu=nu, focal_gamma=focal_gamma, device=device) 
 
     else: 
         center = torch.tensor([], device=device) 
         radius = 0 
 
-        state_ai = MolStateAI(True, path_prefix+'/MolStateGCN_epoch_'+str(start_epoch)+'.pt', center_path, radius_path, center, radius, gcn_lr=gcn_lr, weight_decay=weight_decay, nu=nu, device=device) 
+        state_ai = MolStateAI(True, path_prefix+'/MolStateGCN_epoch_'+str(start_epoch)+'.pt', center_path, radius_path, center, radius, gcn_lr=gcn_lr, weight_decay=weight_decay, nu=nu, focal_gamma=focal_gamma, device=device) 
             
         state_ai.center = state_ai.init_center(graphs, node_feats, edge_feats, timesteps, conditioning_feats) 
 

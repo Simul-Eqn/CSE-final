@@ -1,5 +1,5 @@
-mass_spec_gcn_path = './RL_attempt/mass_spec_lr_search_with_pooling/search_3e-07_3e-07/models/mass_spec_training/FTreeGCN_training_epoch_35.pt' 
-num_guesses_per_state = 2 
+mass_spec_gcn_path = './RL_attempt/mass_spec_lr_search_without_pooling/search_3e-07_1e-06/models/mass_spec_training/FTreeGCN_training_epoch_20.pt' 
+num_guesses_per_state = 3 
 
 
 
@@ -36,13 +36,13 @@ k = 100
 test_type = "max_12" 
 filter_away_not_0_1 = False 
 max_num_atoms = 12 
-epoch_nums = [30, 65] 
+epoch_nums = [10, 100] # epoch 10 has the best separability and performance, while epoch 100 may be close due to more training (lower stddev on normal scores)
 gcn_lrs = [5e-04] 
-nus = [0.05] 
+nus = [0.1] 
 cannots = [] 
 test_random = True 
 
-depth_range = list(range(1,7)) 
+depth_range = list(range(1,10)) 
 
 
 import astar_search 
@@ -136,26 +136,32 @@ for gcn_lr in gcn_lrs:
                     pass # error is that the directory already exists; no need to worry... 
                 
                 
-                random_valid = astar_search.random_top_k_depth(k, depth, valid_path, save_states, valid=True) 
+                random_valid = astar_search.random_top_k_depth(k, depth, valid_path, save_states, valid=True) # last one is target 
                 print(random_valid[1]) 
                 print(random_valid[2]) 
 
                 # save to file 
                 fout = open(astar_search.path_prefix+"/valid_astar_depth_top_"+str(k)+"_results_try"+str(astar_search.num_guesses_per_state)+".txt", 'a+') 
                 fout.write(str(depth)+" RANDOM: \n") 
-                fout.write(str(random_valid)) 
+                fout.write(str(random_valid[:-1])) 
                 fout.write("\n") 
+                fout.write(str(depth)+" TARGET: \n") 
+                fout.write(str(random_valid[-1])) 
+                fout.write("\n")
                 fout.close()
 
-                random_test = astar_search.random_top_k_depth(k, depth, path, save_states, valid=False) 
+                random_test = astar_search.random_top_k_depth(k, depth, path, save_states, valid=False) # last one is target 
                 print(random_test[1]) 
                 print(random_test[2]) 
 
                 # save to file 
                 fout = open(astar_search.path_prefix+"/test_astar_depth_top_"+str(k)+"_results_try"+str(astar_search.num_guesses_per_state)+".txt", 'a+') 
                 fout.write(str(depth)+" RANDOM: \n") 
-                fout.write(str(random_test)) 
+                fout.write(str(random_test[:-1])) 
                 fout.write("\n") 
+                fout.write(str(depth)+" TARGET: \n") 
+                fout.write(str(random_test[-1])) 
+                fout.write("\n")
                 fout.close()
 
                 print() 

@@ -1,5 +1,5 @@
-mass_spec_gcn_path = './RL_attempt/mass_spec_lr_search_with_pooling/search_3e-07_3e-07/models/mass_spec_training/FTreeGCN_training_epoch_35.pt' 
-num_guesses_per_state = 2 
+mass_spec_gcn_path = './RL_attempt/mass_spec_lr_search_without_pooling/search_3e-07_1e-06/models/mass_spec_training/FTreeGCN_training_epoch_20.pt' 
+num_guesses_per_state = 3 
 # TODO: MAKE THIS ALSO EVALUATE ACTION ACCURACY YEY 
 # ALSO TODO: MAKE THIS PARALLEL, AND TEST DEPTH ALSO PARALLEL, TO SAVE TIME. BECAUSE THOSE ARE NOT VERY GPU CONSUMING ADN STUFF YES 
 
@@ -16,6 +16,7 @@ seed = 10
 
 dgl.seed(seed) 
 torch.manual_seed(seed)
+torch.cuda.manual_seed(seed) 
 random.seed(seed) 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -32,9 +33,9 @@ k = 100
 test_type = "max_12" 
 filter_away_not_0_1 = False 
 max_num_atoms = 12 
-epoch_nums = [30, 65] 
+epoch_nums = [10, 100] # epoch 10 has the best separability and performance, while epoch 100 may be close due to more training (lower stddev on normal scores)
 gcn_lrs = [5e-04] 
-nus = [0.05] 
+nus = [0.1] 
 cannots = [] 
 test_random = True 
 
