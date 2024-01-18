@@ -1,5 +1,5 @@
 mass_spec_gcn_path = './RL_attempt/mass_spec_lr_search_without_pooling/search_3e-07_1e-06/models/mass_spec_training/FTreeGCN_training_epoch_20.pt' 
-num_guesses_per_state = 2 
+num_guesses_per_state = 3 
 # TODO: MAKE THIS ALSO EVALUATE ACTION ACCURACY YEY 
 # ALSO TODO: MAKE THIS PARALLEL, AND TEST DEPTH ALSO PARALLEL, TO SAVE TIME. BECAUSE THOSE ARE NOT VERY GPU CONSUMING ADN STUFF YES 
 

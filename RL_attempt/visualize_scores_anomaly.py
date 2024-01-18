@@ -3,9 +3,9 @@ import numpy as np
 
 
 cases = {
-    'max_12_filtered_0_1': {'test_type': 'max_12_filtered_0_1', 'epoch_range': range(5, 101, 5), 'plot_title':'SCORES - MAX 12 \n(either non-aromatic or with one benzene ring only)'}, 
-    'max_12': {'test_type': 'max_12', 'epoch_range': range(5, 101, 5), 'plot_title':'SCORES - MAX 12'}, 
-    #'max_15': {'test_type': 'max_15', 'epoch_range': range(5, 101, 5), 'plot_title':'SCORES - MAX 15'} 
+    'max_12_filtered_0_1': {'gcn_lrs': [5e-04], 'test_type': 'max_12_filtered_0_1', 'epoch_range': range(5, 101, 5), 'plot_title':'SCORES - MAX 12 \n(either non-aromatic or with one benzene ring only)'}, 
+    'max_12': {'gcn_lrs': [5e-04], 'test_type': 'max_12', 'epoch_range': range(5, 101, 5), 'plot_title':'SCORES - MAX 12'}, 
+    'max_15': {'gcn_lrs': [5e-05], 'test_type': 'max_15', 'epoch_range': range(5, 101, 5), 'plot_title':'SCORES - MAX 15'} 
 }
 
 plt.figure() 
@@ -13,7 +13,7 @@ plt.figure()
 bins = np.array(list(range(0, 103, 2)), dtype=np.float32)/100 
 
 for k, v in cases.items(): 
-    for gcn_lr in [5e-04]: 
+    for gcn_lr in v['gcn_lrs']: 
         for nu in [0.1]: 
             with open('./RL_attempt/non_anomalous_grid_search_'+v['test_type']+'/search_'+str(gcn_lr)+"_"+str(nu) +"/test_scores.txt", 'r') as scoresfile: # infile location 
                 all_scores = scoresfile.readlines() 

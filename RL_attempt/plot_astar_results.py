@@ -129,7 +129,7 @@ def plot_results(k = 100,
 
             plt.figure() 
             plt.title("ASTAR SEARCH CORRECT ACTION RATES FOR GCN_LR = "+str(gcn_lr)+", NU = "+str(nu)+" \n("+test_type+", "+str(num_guesses_per_state)+" actions per state, validation)") 
-            plt.xlabel("Number of guesses allowed") 
+            plt.xlabel("Model used") 
             plt.ylabel("Fraction of correct actions taken") 
 
             xs = [] 
@@ -153,7 +153,7 @@ def plot_results(k = 100,
 
             plt.figure() 
             plt.title("SINGLE BOND ACTION RATES FOR GCN_LR = "+str(gcn_lr)+", NU = "+str(nu)+" \n("+test_type+", "+str(num_guesses_per_state)+" actions per state, validation)") 
-            plt.xlabel("Number of guesses allowed") 
+            plt.xlabel("Model used") 
             plt.ylabel("Fraction of single bonds as actions taken") 
 
             xs = [] 
@@ -222,7 +222,7 @@ def plot_results(k = 100,
 
         plt.figure() 
         plt.title("ASTAR SEARCH CORRECT ACTION RATES FOR GCN_LR = "+str(gcn_lr)+", NU = "+str(nu)+" \n("+test_type+", "+str(num_guesses_per_state)+" actions per state, test)") 
-        plt.xlabel("Number of guesses allowed") 
+        plt.xlabel("Model used") 
         plt.ylabel("Fraction of correct actions taken") 
 
         xs = [] 
@@ -247,7 +247,7 @@ def plot_results(k = 100,
 
         plt.figure() 
         plt.title("SINGLE BOND ACTION RATES FOR GCN_LR = "+str(gcn_lr)+", NU = "+str(nu)+" \n("+test_type+", "+str(num_guesses_per_state)+" actions per state, test)") 
-        plt.xlabel("Number of guesses allowed") 
+        plt.xlabel("Model used") 
         plt.ylabel("Fraction of single bonds as actions taken") 
 
         xs = [] 

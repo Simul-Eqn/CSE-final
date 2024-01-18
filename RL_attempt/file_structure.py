@@ -25,9 +25,12 @@ for test_type in ['max_12', 'max_12_filtered_0_1', 'max_15']:
     # make for non-anomalous grid search 
     path1 = os.path.join(parent_dir, "non_anomalous_grid_search_"+test_type) 
     os.mkdir(path1)
-    for gcn_lr in [5e-04]: 
+    if test_type == "max_15": 
+        gcn_lrs = [5e-05, 5e-04] 
+    else: 
+         gcn_lrs = [5e-04] 
+    for gcn_lr in gcn_lrs: 
         for nu in [0.1]: 
-            if test_type == "max_15": gcn_lr /= 10 
             search_path = os.path.join(path1, 'search_'+str(gcn_lr)+"_"+str(nu))
             os.mkdir(search_path) 
 
@@ -46,7 +49,11 @@ for test_type in ['max_12_filtered_0_1', 'max_12', 'max_15']:
 
     scores_vis_path = os.path.join(fig_path, "non_anomalous_"+test_type+"_scores_visualization") 
     os.mkdir(scores_vis_path) 
-    for gcn_lr in [5e-04]: 
+    if test_type == "max_15": 
+        gcn_lrs = [5e-05, 5e-04] 
+    else: 
+         gcn_lrs = [5e-04] 
+    for gcn_lr in gcn_lrs: 
             for nu in [0.1]: 
                 if test_type == "max_15": gcn_lr /= 10 
                 os.mkdir(os.path.join(scores_vis_path, "search_"+str(gcn_lr)+"_"+str(nu))) 
