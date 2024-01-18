@@ -3,8 +3,8 @@ import numpy as np
 
 
 cases = {
-    'max_12_filtered_0_1': {'gcn_lrs': [5e-04], 'test_type': 'max_12_filtered_0_1', 'epoch_range': range(5, 101, 5), 'plot_title':'SCORES - MAX 12 \n(either non-aromatic or with one benzene ring only)'}, 
-    'max_12': {'gcn_lrs': [5e-04], 'test_type': 'max_12', 'epoch_range': range(5, 101, 5), 'plot_title':'SCORES - MAX 12'}, 
+    #'max_12_filtered_0_1': {'gcn_lrs': [5e-04], 'test_type': 'max_12_filtered_0_1', 'epoch_range': range(5, 101, 5), 'plot_title':'SCORES - MAX 12 \n(either non-aromatic or with one benzene ring only)'}, 
+    #'max_12': {'gcn_lrs': [5e-04], 'test_type': 'max_12', 'epoch_range': range(5, 101, 5), 'plot_title':'SCORES - MAX 12'}, 
     'max_15': {'gcn_lrs': [5e-05], 'test_type': 'max_15', 'epoch_range': range(5, 101, 5), 'plot_title':'SCORES - MAX 15'} 
 }
 
