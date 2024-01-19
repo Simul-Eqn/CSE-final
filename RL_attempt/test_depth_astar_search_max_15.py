@@ -40,7 +40,7 @@ nus = [0.1]
 cannots = [] 
 test_random = True 
 
-depth_range = list(range(1,10)) 
+depth_range = list(range(1,8)) # unfortunately, due to time constraints, this is necessary 
 
 
 import astar_search 

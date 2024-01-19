@@ -26,7 +26,7 @@ for test_type in ['max_12', 'max_12_filtered_0_1', 'max_15']:
     path1 = os.path.join(parent_dir, "non_anomalous_grid_search_"+test_type) 
     os.mkdir(path1)
     if test_type == "max_15": 
-        gcn_lrs = [5e-05, 5e-04] 
+        gcn_lrs = [5e-05] 
     else: 
          gcn_lrs = [5e-04] 
     for gcn_lr in gcn_lrs: 
@@ -50,7 +50,7 @@ for test_type in ['max_12_filtered_0_1', 'max_12', 'max_15']:
     scores_vis_path = os.path.join(fig_path, "non_anomalous_"+test_type+"_scores_visualization") 
     os.mkdir(scores_vis_path) 
     if test_type == "max_15": 
-        gcn_lrs = [5e-05, 5e-04] 
+        gcn_lrs = [5e-05] 
     else: 
          gcn_lrs = [5e-04] 
     for gcn_lr in gcn_lrs: 

@@ -30,6 +30,8 @@ To test the main models' ability to search and generate the molecule from a star
 
 To test the main models' accuracy in searching and generating the molecule from different depths, run the three similarly named programs test_depth_astar_search_max_12_filtered_0_1.py, test_depth_astar_search_max_12.py, and test_depth_astar_search_max_15.py, changing variables as desired. Then, run plot_depth_main_models_results.py to see the visualization of the results. 
 
+Note that the subfolders try_2 and try_3 within figures/astar_\[case\]_results were manually created and images dragged into them, for ease of navigation. 
+
 
 ## Comparing the abundancies of types of bonds 
 

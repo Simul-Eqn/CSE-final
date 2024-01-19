@@ -456,6 +456,10 @@ def train(start_epoch=0):
         print("EPOCH", epoch, "TRAIN LOSS:", train_loss)
 
         
+        # to regulate the amount of time taken in the testing stage 
+        if (epoch == 15): test_filtered_smiless = test_filtered_smiless[:20] 
+
+        
         if epoch%test_epoch_interval == 0: 
             am.state_ai.save(path_prefix+'/MolStateGCN_epoch_'+str(epoch)+'.pt') 
             am.state_ai.save_hypersphere_params(path_prefix+"/center_epoch_"+str(epoch)+".pt", path_prefix+"/radius_epoch_"+str(epoch)+".txt") 
